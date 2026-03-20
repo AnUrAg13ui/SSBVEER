@@ -1,0 +1,1354 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>SSB Individual Obstacles (Authentic Layout)</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #87CEEB;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        /* Prevent default touch actions on canvas to allow Three.js controls to work smoothly */
+        #canvas-container {
+            width: 100%;
+            height: 100vh;
+            display: block;
+            touch-action: none;
+        }
+
+        /* UI Overlay */
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .top-bar {
+            padding: 15px;
+            background: linear-gradient(to bottom, rgba(0, 0, 0, 0.8), transparent);
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            pointer-events: auto;
+            gap: 10px;
+        }
+
+        .title-container h1 {
+            margin: 0;
+            font-size: 1.2rem;
+            color: #f1c40f;
+            text-shadow: 1px 1px 2px black;
+        }
+
+        .title-container p {
+            margin: 0;
+            font-size: 0.8rem;
+            color: #ddd;
+        }
+
+        .settings-group {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+
+        .mode-btn {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+            transition: background 0.2s;
+            font-size: 0.8rem;
+            min-width: 80px;
+            white-space: nowrap;
+        }
+
+        .mode-btn:active {
+            transform: scale(0.95);
+        }
+
+        .mode-btn.female {
+            background: #e91e63;
+        }
+
+        .mode-btn.afsb {
+            background: #00BCD4;
+        }
+
+        .controls-bar {
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            pointer-events: auto;
+            background: linear-gradient(to top, rgba(0, 0, 0, 0.8), transparent);
+        }
+
+        .nav-btn {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 30px;
+            font-size: 1rem;
+            font-weight: bold;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+            pointer-events: auto;
+            transition: transform 0.1s, background 0.2s;
+            min-width: 80px;
+        }
+
+        .nav-btn:active {
+            transform: scale(0.95);
+        }
+
+        .step-indicator {
+            color: white;
+            font-weight: bold;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 8px 20px;
+            border-radius: 20px;
+            backdrop-filter: blur(4px);
+            font-size: 0.9rem;
+        }
+
+        /* Info Card */
+        #info-card {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 90%;
+            max-width: 400px;
+            background: rgba(255, 255, 255, 0.98);
+            border-radius: 12px;
+            padding: 0;
+            display: none;
+            pointer-events: auto;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            animation: popIn 0.3s ease-out;
+            border-left: 5px solid #f1c40f;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        @keyframes popIn {
+            from {
+                transform: translate(-50%, -40%);
+                opacity: 0
+            }
+
+            to {
+                transform: translate(-50%, -50%);
+                opacity: 1
+            }
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            border-bottom: 1px solid #eee;
+            background: #f9f9f9;
+            position: sticky;
+            top: 0;
+        }
+
+        .card-title {
+            margin: 0;
+            font-size: 1.2rem;
+            color: #2c3e50;
+            font-weight: 800;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 1.8rem;
+            cursor: pointer;
+            color: #7f8c8d;
+            line-height: 1;
+            padding: 0;
+        }
+
+        .card-content {
+            padding: 20px;
+        }
+
+        .section-title {
+            font-size: 0.85rem;
+            color: #7f8c8d;
+            text-transform: uppercase;
+            font-weight: bold;
+            margin-top: 12px;
+            margin-bottom: 4px;
+            letter-spacing: 0.5px;
+        }
+
+        .section-text {
+            font-size: 0.95rem;
+            color: #34495e;
+            margin: 0;
+            line-height: 1.5;
+        }
+
+        .tips-list {
+            padding-left: 20px;
+            margin: 5px 0;
+        }
+
+        .tips-list li {
+            font-size: 0.9rem;
+            color: #34495e;
+            margin-bottom: 4px;
+        }
+
+        .tag {
+            display: inline-block;
+            background: #ecf0f1;
+            color: #2c3e50;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            margin-right: 5px;
+            margin-bottom: 5px;
+            border: 1px solid #bdc3c7;
+        }
+
+        #loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #2c3e50;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            z-index: 999;
+            transition: opacity 0.5s;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid #f1c40f;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 15px;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Help Hint */
+        .help-hint {
+            position: absolute;
+            top: 70px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.3);
+            padding: 5px 15px;
+            border-radius: 20px;
+            color: white;
+            font-size: 0.75rem;
+            pointer-events: none;
+            backdrop-filter: blur(2px);
+            white-space: nowrap;
+        }
+    </style>
+    <!-- Three.js Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
+<script defer src="https://onessb.com/~flock.js" data-proxy-url="https://onessb.com/~api/analytics"></script><meta name="twitter:image" content="https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/9b1b204f-41cf-422e-8216-f7d6c25e8d6e/id-preview-05af6b1d--59085dc5-2dfa-44a2-a438-58d6ea6a83c7.lovable.app-1773074008560.png" /></head>
+
+<body>
+
+    <div id="loading">
+        <div class="spinner"></div>
+        <div>Preparing Simulation...</div>
+    </div>
+
+    <div id="ui-layer">
+        <div class="top-bar">
+            <button class="back-btn" onclick="window.parent.history.back()" style="background: rgba(0, 0, 0, 0.6); border: 2px solid white; color: white; border-radius: 25px; padding: 8px 20px; font-size: 0.9rem; font-weight: bold; display: flex; align-items: center; gap: 8px; cursor: pointer; backdrop-filter: blur(4px); margin-right: auto;">
+                <span>&#8592;</span> Back
+            </button>
+            <div class="title-container">
+                <h1>SSB OBSTACLES</h1>
+                <p>3D Simulation</p>
+            </div>
+            <div class="settings-group">
+                <button class="mode-btn" id="boardBtn" onclick="toggleBoard()">Board: SSB</button>
+                <button class="mode-btn" id="modeBtn" onclick="toggleGender()">Mode: Men</button>
+            </div>
+        </div>
+
+        <div class="help-hint">Tap objects for info &bull; Drag to rotate</div>
+
+        <div class="controls-bar">
+            <button class="nav-btn" onclick="navigate(-1)">&#8592; Prev</button>
+            <div class="step-indicator" id="stepInd">Start</div>
+            <button class="nav-btn" onclick="navigate(1)">Next &#8594;</button>
+        </div>
+    </div>
+
+    <div id="info-card">
+        <div class="card-header">
+            <h3 class="card-title" id="c-title">Title</h3>
+            <button class="close-btn" onclick="closeCard()">&times;</button>
+        </div>
+        <div class="card-content">
+            <div id="c-tags" style="margin-bottom:15px;"></div>
+            <div id="c-body"></div>
+        </div>
+    </div>
+
+    <div id="canvas-container"></div>
+
+    <script>
+        // --- Constants ---
+        const MODE_MEN = 'MEN';
+        const MODE_WOMEN = 'WOMEN';
+        const BOARD_SSB = 'SSB';
+        const BOARD_AFSB = 'AFSB';
+
+        let currentMode = MODE_MEN;
+        let currentBoard = BOARD_SSB;
+
+        // --- Definitions & Slots ---
+        const obstacleSlots = [
+            { id: 1, x: -40, z: 20, rot: 0.5 },
+            { id: 2, x: -25, z: 10, rot: 0.2 },
+            { id: 3, x: -15, z: 35, rot: 0 },
+            { id: 4, x: 0, z: 5, rot: 0 },
+            { id: 5, x: 15, z: 25, rot: -0.3 },
+            { id: 6, x: 35, z: 45, rot: -0.5 },
+            { id: 7, x: 50, z: 15, rot: -0.8 },
+            { id: 8, x: 0, z: -20, rot: 1.57 },
+            { id: 9, x: -30, z: -15, rot: 1.2 },
+            { id: 10, x: 40, z: -10, rot: -1.5 }
+        ];
+
+        // 2. Obstacle Templates (The content)
+        const obsTemplates = {
+            SLIDE: {
+                name: "Single Ramp Jump", type: "SLIDE", points: 1,
+                config: {
+                    men: "4-ft high inclined ramp; ~4-ft jump into sandpit.",
+                    women: "4-ft high inclined ramp; ~4-ft jump into sandpit."
+                },
+                action: "Run down the ramp, jump across the marked line, land safely in the sand.",
+                tips: ["Take a strong running start.", "Jump exactly from the edge of the ramp.", "Swing arms forward for power.", "Land with bent knees."],
+                params: { men: { h: 4.5, gap: 0 }, women: { h: 4, gap: 0 } }
+            },
+            LONG_JUMP: {
+                name: "Long Jump (Barrel)", type: "LONG_JUMP", points: 2,
+                config: {
+                    men: "6 ft × 3 ft barrels.",
+                    women: "5 ft × 3 ft barrels."
+                },
+                action: "Approach with speed and jump over the buried drums into sand.",
+                tips: ["Build momentum with a steady run-up.", "Extend lead leg fully at takeoff.", "Land heels-first + sit back for extra distance."],
+                params: { men: { len: 6 }, women: { len: 5 } }
+            },
+            HIGH_JUMP: {
+                name: "High Jump", type: "HIGH_JUMP", points: 2,
+                config: {
+                    men: "3–4 ft bar.",
+                    women: "~3 ft bar."
+                },
+                action: "Use freestyle technique to clear the bar, land in sand.",
+                tips: ["Use a J-curve run-up.", "Arch back (Fosbury-style) for clearance.", "Drive knee and arm up at takeoff."],
+                params: { men: { h: 3.5 }, women: { h: 3 } }
+            },
+            ZIG_ZAG: {
+                name: "Zig-Zag Balancing", type: "ZIG_ZAG", points: 3,
+                config: {
+                    men: "Zig-zag wooden beams 3–4 ft high.",
+                    women: "Zig-zag wooden beams 3–4 ft high."
+                },
+                action: "Walk across without stepping off.",
+                tips: ["Look ahead, not down.", "Take small, controlled steps.", "Use arms for balance."],
+                params: { men: {}, women: {} }
+            },
+            POLE_WALK: {
+                name: "Log Walk", type: "POLE_WALK", points: 3,
+                config: {
+                    men: "Cylindrical log, 6 ft long, 4–5 ft high.",
+                    women: "Cylindrical log, 6 ft long, 3–4 ft high."
+                },
+                action: "Walk across the log without falling.",
+                tips: ["Plant feet precisely.", "Move slowly and steadily.", "Use arms for balance."],
+                params: { men: { h: 5, len: 6 }, women: { h: 4, len: 6 } }
+            },
+            SCREEN: {
+                name: "High Screen Jump", type: "SCREEN", points: 4,
+                config: {
+                    men: "Ramp → red screen at ~5–6 ft → sandpit.",
+                    women: "Ramp → red screen at ~5–6 ft → sandpit."
+                },
+                action: "Run, jump over the screen without touching it.",
+                tips: ["Maintain strong momentum.", "Fully extend legs to clear the screen.", "Land softly in sand."],
+                params: { men: {}, women: {} }
+            },
+            PLATFORMS: {
+                name: "Platform Jumps", type: "PLATFORMS", points: 4,
+                config: {
+                    men: "Jump from 12-ft platform → 8-ft platform → ground.",
+                    women: "Jump from 12-ft platform → 8-ft platform → ground."
+                },
+                action: "Climb up, jump platform to platform without touching red sides.",
+                tips: ["Focus on landing zone, not height.", "Land on toes to absorb impact.", "Keep body upright during jumps."],
+                params: { men: {}, women: {} }
+            },
+            BURMA: {
+                name: "Burma Bridge", type: "BURMA", points: 5,
+                config: {
+                    men: "25-ft long parallel ropes; lower rope to walk on, upper rope to hold.",
+                    women: "25-ft long parallel ropes; lower rope to walk on, upper rope to hold."
+                },
+                action: "Walk across the lower rope while holding upper rope.",
+                tips: ["Hold upper rope firmly.", "Take long steps to reduce shaking.", "Look ahead, not down."],
+                params: { men: { h: 10 }, women: { h: 10 } }
+            },
+            TARZAN: {
+                name: "Tarzan Swing", type: "TARZAN", points: 6,
+                config: {
+                    men: "Platform 8–12 ft; rope hanging 4 ft away.",
+                    women: "Platform 8–12 ft; rope hanging 4 ft away."
+                },
+                action: "Grab rope high, swing across, land beyond red marks.",
+                tips: ["Grab rope as high as possible.", "Keep legs folded during swing.", "Land with bent knees."],
+                params: { men: { dist: 5 }, women: { dist: 4 } }
+            },
+            WALL: {
+                name: "Wall Climb", type: "WALL", points: 6,
+                config: {
+                    men: "8-ft wall on incline.",
+                    women: "8-ft wall on incline."
+                },
+                action: "Run up ramp and climb over by placing one foot on top and rolling over.",
+                tips: ["Hit the incline with speed.", "Use the 'foot-on-top then roll' technique.", "Use upper body support while rolling over."],
+                params: { men: { h: 8 }, women: { h: 8 } }
+            },
+            DOUBLE_PLATFORM: {
+                name: "Double Platform Jump", type: "DOUBLE_PLATFORM", points: 7,
+                config: {
+                    men: "Platform 1: 12 ft; Platform 2: 8 ft.",
+                    women: "Platform 1: 12 ft; Platform 2: 8 ft."
+                },
+                action: "Jump from higher → lower → ground.",
+                tips: ["Land on toes to reduce impact.", "Keep eyes on landing zone.", "Use arms for balance."],
+                params: { men: {}, women: {} }
+            },
+            TYRE_JUMP: {
+                name: "Tyre Jump", type: "TYRE_JUMP", points: 7,
+                config: {
+                    men: "Tyre hung at 5 ft; rope loop for support.",
+                    women: "Tyre hung at 5 ft; rope loop for support."
+                },
+                action: "Jump feet-first through tyre using rope loop.",
+                tips: ["Take a running start.", "Keep feet together when entering.", "Use rope loop to pull yourself through."],
+                params: { men: { h: 5 }, women: { h: 4 } }
+            },
+            DITCH: {
+                name: "Double Ditch", type: "DITCH", points: 8,
+                config: {
+                    men: "Ditch 1: 8×3 ft with rope. Ditch 2: 4×3 ft without rope.",
+                    women: "Ditch 1: 8×3 ft with rope. Ditch 2: 4×3 ft without rope."
+                },
+                action: "Jump using rope into middle platform; jump again to clear second ditch.",
+                tips: ["Grip rope firmly at chest height.", "Land on platform with bent knees.", "Take second jump immediately—don't pause."],
+                params: { men: { w1: 8, w2: 4 }, women: { w1: 6, w2: 3 } }
+            },
+            COMMANDO: {
+                name: "Commando Walk", type: "COMMANDO", points: 9,
+                config: {
+                    men: "Narrow plank at ~10 ft height; victory stand in middle; ladders at both ends.",
+                    women: "Narrow plank at ~10 ft height; victory stand in middle; ladders at both ends."
+                },
+                action: "Walk across the plank, reach center stand, descend from other side.",
+                tips: ["Look ahead, not down.", "Take slow, deliberate steps.", "Keep posture upright for balance."],
+                params: { men: { h: 10 }, women: { h: 8 } }
+            },
+            MONKEY: {
+                name: "Monkey Crawl", type: "MONKEY", points: 8,
+                config: {
+                    men: "Horizontal suspended logs at ~3 ft height.",
+                    women: "Horizontal suspended logs at ~3 ft height."
+                },
+                action: "Slide on top or crawl underneath while structure swings.",
+                tips: ["Keep a strong grip.", "Move steadily to control swing.", "Use legs for support if crawling."],
+                params: { men: { len: 20 }, women: { len: 15 } }
+            },
+            TIGER: {
+                name: "Tiger Leap", type: "TIGER", points: 10,
+                config: {
+                    men: "10-ft platform → rope hanging 4 ft away.",
+                    women: "10-ft platform → rope hanging 4 ft away."
+                },
+                action: "Jump forward to catch rope and descend safely.",
+                tips: ["Commit fully when leaping.", "Grab rope at chest level to avoid sliding.", "Use leg-wrap technique for safe descent."],
+                params: { men: { dist: 4 }, women: { dist: 2.5 } }
+            },
+            ROPE_CLIMB: {
+                name: "Vertical Rope Climb", type: "ROPE_CLIMB", points: 10,
+                config: {
+                    men: "Rope height ~4–5 m for males.",
+                    women: "Rope height ~3–4 m for females."
+                },
+                action: "Climb rope using hands (men hands-only) to touch top target.",
+                tips: ["Use reach → lift → clamp → stand sequence.", "Clamp rope properly with feet (J-hook / watermelon squeeze).", "Build grip strength through pull-ups."],
+                params: { men: { h: 15 }, women: { h: 12 } }
+            }
+        };
+
+        let obstacleDB = [];
+        let scene, camera, renderer, controls;
+        let obstacleMeshes = [];
+        let currentIdx = -1;
+        const mouse = new THREE.Vector2();
+
+        // Materials
+        const matWhite = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5 });
+        const matRed = new THREE.MeshStandardMaterial({ color: 0xe74c3c, roughness: 0.6 });
+        const matRedCurtain = new THREE.MeshStandardMaterial({ color: 0xc62828, roughness: 0.8, side: THREE.DoubleSide });
+        const matWood = new THREE.MeshStandardMaterial({ color: 0x8d6e63, roughness: 0.9 });
+        const matGreyWood = new THREE.MeshStandardMaterial({ color: 0xa1887f, roughness: 0.9 });
+        const matGround = new THREE.MeshStandardMaterial({ color: 0x4caf50, roughness: 1 });
+        const matSand = new THREE.MeshStandardMaterial({ color: 0xf4a460 });
+        const matRope = new THREE.MeshStandardMaterial({ color: 0xd7ccc8 });
+        const matMetal = new THREE.MeshStandardMaterial({ color: 0x7f8c8d, roughness: 0.4 });
+        const matDark = new THREE.MeshBasicMaterial({ color: 0x2e2723 });
+        const matPole = new THREE.MeshStandardMaterial({ color: 0x5d4037, roughness: 0.9 });
+
+        // Jute Texture
+        const juteCanvas = document.createElement('canvas');
+        juteCanvas.width = 64; juteCanvas.height = 64;
+        const jCtx = juteCanvas.getContext('2d');
+        jCtx.fillStyle = '#C4A484'; jCtx.fillRect(0, 0, 64, 64);
+        jCtx.strokeStyle = '#8B4513'; jCtx.lineWidth = 3;
+        for (let i = -64; i < 128; i += 10) { jCtx.beginPath(); jCtx.moveTo(i, 0); jCtx.lineTo(i + 32, 64); jCtx.stroke(); }
+        const juteTex = new THREE.CanvasTexture(juteCanvas);
+        juteTex.wrapS = THREE.RepeatWrapping; juteTex.wrapT = THREE.RepeatWrapping;
+        juteTex.repeat.set(1, 20);
+        const matJuteRope = new THREE.MeshStandardMaterial({ map: juteTex, color: 0xdddddd, roughness: 1.0, bumpMap: juteTex, bumpScale: 0.02 });
+
+        function init() {
+            const container = document.getElementById('canvas-container');
+
+            // Scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x87CEEB);
+            scene.fog = new THREE.Fog(0x87CEEB, 30, 150);
+
+            // Camera
+            camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 0.1, 300);
+            camera.position.set(0, 50, 90);
+
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            container.appendChild(renderer.domElement);
+
+            // Controls
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.maxPolarAngle = Math.PI / 2 - 0.05;
+            controls.minDistance = 10;
+            controls.maxDistance = 120;
+
+            // Lights
+            const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
+            scene.add(hemi);
+            const dir = new THREE.DirectionalLight(0xffffff, 0.9);
+            dir.position.set(50, 100, 50);
+            dir.castShadow = true;
+            dir.shadow.mapSize.width = 2048;
+            dir.shadow.mapSize.height = 2048;
+            scene.add(dir);
+
+            // Ground
+            const ground = new THREE.Mesh(new THREE.PlaneGeometry(300, 300), matGround);
+            ground.rotation.x = -Math.PI / 2;
+            ground.receiveShadow = true;
+            scene.add(ground);
+
+            // Add Environment
+            addEnvironment();
+
+            // Build
+            refreshObstacleDB();
+            buildScene();
+            updateUI(); // Initialize UI state
+
+            // Mobile-friendly interactions
+            window.addEventListener('resize', onResize);
+
+            // Pointer events for robust tap detection (distinguishes click from drag)
+            let downX = 0;
+            let downY = 0;
+
+            renderer.domElement.addEventListener('pointerdown', function (e) {
+                downX = e.clientX;
+                downY = e.clientY;
+            });
+
+            renderer.domElement.addEventListener('pointerup', function (e) {
+                const diffX = Math.abs(e.clientX - downX);
+                const diffY = Math.abs(e.clientY - downY);
+                // If movement is small (<5px), treat as tap/click
+                if (diffX < 5 && diffY < 5) {
+                    onClick(e);
+                }
+            });
+
+            // Remove loader
+            setTimeout(() => {
+                document.getElementById('loading').style.opacity = 0;
+                setTimeout(() => document.getElementById('loading').remove(), 500);
+            }, 800);
+
+            animate();
+        }
+
+        function addEnvironment() {
+            const treeGeo = new THREE.ConeGeometry(3, 8, 8);
+            const trunkGeo = new THREE.CylinderGeometry(0.5, 0.5, 3);
+            const treeMat = new THREE.MeshStandardMaterial({ color: 0x2d5a27 });
+            const trunkMat = new THREE.MeshStandardMaterial({ color: 0x5d4037 });
+
+            for (let i = 0; i < 30; i++) {
+                const group = new THREE.Group();
+                const leaves = new THREE.Mesh(treeGeo, treeMat);
+                leaves.position.y = 4; leaves.castShadow = true;
+                const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+                trunk.position.y = 1.5;
+                group.add(leaves, trunk);
+
+                const ang = Math.random() * Math.PI * 2;
+                const rad = 60 + Math.random() * 60;
+                group.position.set(Math.cos(ang) * rad, 0, Math.sin(ang) * rad);
+                scene.add(group);
+            }
+        }
+
+        function refreshObstacleDB() {
+            let order = [];
+
+            if (currentBoard === BOARD_SSB) {
+                order = [
+                    obsTemplates.SLIDE,
+                    obsTemplates.LONG_JUMP,
+                    obsTemplates.ZIG_ZAG,
+                    obsTemplates.SCREEN,
+                    obsTemplates.BURMA,
+                    obsTemplates.TARZAN,
+                    obsTemplates.DOUBLE_PLATFORM,
+                    obsTemplates.DITCH,
+                    obsTemplates.COMMANDO,
+                    obsTemplates.TIGER
+                ];
+            } else {
+                order = [
+                    obsTemplates.SLIDE,
+                    obsTemplates.HIGH_JUMP,
+                    obsTemplates.POLE_WALK,
+                    obsTemplates.PLATFORMS,
+                    obsTemplates.BURMA,
+                    obsTemplates.WALL,
+                    obsTemplates.TYRE_JUMP,
+                    obsTemplates.TIGER,
+                    obsTemplates.MONKEY,
+                    obsTemplates.ROPE_CLIMB
+                ];
+            }
+
+            obstacleDB = obstacleSlots.map((slot, i) => {
+                return {
+                    ...order[i],
+                    id: slot.id,
+                    pos: { x: slot.x, z: slot.z, rot: slot.rot }
+                };
+            });
+        }
+
+        function buildScene() {
+            obstacleMeshes.forEach(m => scene.remove(m));
+            obstacleMeshes = [];
+
+            obstacleDB.forEach(obs => {
+                const group = new THREE.Group();
+                const p = currentMode === MODE_MEN ? obs.params.men : obs.params.women;
+                const defaultP = obs.params.men;
+                const type = obs.type;
+
+                if (type === 'SLIDE') buildSlide(group, p.h || defaultP.h);
+                else if (type === 'LONG_JUMP') buildLongJump(group, p.len || defaultP.len);
+                else if (type === 'HIGH_JUMP') buildHighJump(group, p.h || defaultP.h);
+                else if (type === 'ZIG_ZAG') buildZigZag(group);
+                else if (type === 'POLE_WALK') buildPoleWalk(group, p.h || defaultP.h, p.len || defaultP.len);
+                else if (type === 'SCREEN') buildScreenJump(group);
+                else if (type === 'PLATFORMS') buildJumpingPlatforms(group);
+                else if (type === 'BURMA') buildBurmaBridge(group);
+                else if (type === 'TARZAN') buildTarzan(group, p.dist || defaultP.dist);
+                else if (type === 'WALL') buildWall(group, p.h || defaultP.h);
+                else if (type === 'DOUBLE_PLATFORM') buildDoublePlatform(group);
+                else if (type === 'TYRE_JUMP') buildTyreJump(group);
+                else if (type === 'DITCH') buildDoubleDitch(group, p.w1 || defaultP.w1, p.w2 || defaultP.w2);
+                else if (type === 'COMMANDO') buildCommando(group, p.h || defaultP.h);
+                else if (type === 'MONKEY') buildMonkeyCrawl(group, p.len || defaultP.len);
+                else if (type === 'TIGER') buildTigerLeap(group, p.dist || defaultP.dist);
+                else if (type === 'ROPE_CLIMB') buildRopeClimb(group, p.h || defaultP.h);
+
+                group.position.set(obs.pos.x, 0, obs.pos.z);
+                group.rotation.y = obs.pos.rot;
+
+                const hitBox = new THREE.Mesh(new THREE.BoxGeometry(8, 8, 8), new THREE.MeshBasicMaterial({ visible: false }));
+                hitBox.position.y = 4;
+                hitBox.userData = { id: obs.id };
+                group.add(hitBox);
+
+                const canvas = document.createElement('canvas');
+                canvas.width = 64; canvas.height = 64;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#f1c40f';
+                ctx.beginPath(); ctx.arc(32, 32, 30, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#000'; ctx.font = 'bold 36px Arial';
+                ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.fillText(obs.id, 32, 32);
+                const tex = new THREE.CanvasTexture(canvas);
+                const label = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex }));
+                label.position.set(0, 8, 0);
+                label.scale.set(3, 3, 3);
+                group.add(label);
+
+                scene.add(group);
+                obstacleMeshes.push(group);
+            });
+        }
+
+        // --- Obstacle Builders ---
+
+        function buildSlide(g, h) {
+            const rampWidth = 1.2;
+            const rampLen = 8;
+            const startH = 0.6;
+            const endH = 0.6 + h;
+            const angle = Math.atan((endH - startH) / (rampLen * 0.9));
+            const rampGeo = new THREE.BoxGeometry(rampLen, 0.15, rampWidth);
+            const ramp = new THREE.Mesh(rampGeo, matWhite);
+            const rise = Math.sin(angle) * rampLen;
+            const run = Math.cos(angle) * rampLen;
+            const cX = -1 - (run / 2);
+            const cY = rise / 2 + 0.5;
+            ramp.position.set(cX, cY, 0);
+            ramp.rotation.z = angle;
+            ramp.castShadow = true;
+            const tallH = rise - 0.2 + 0.5;
+            const tallPost = new THREE.Mesh(new THREE.BoxGeometry(0.3, tallH, rampWidth - 0.2), matRed);
+            tallPost.position.set(-1.2, tallH / 2, 0);
+            tallPost.castShadow = true;
+            const startX = -1 - run;
+            const shortPosFactor = 0.25;
+            const shortX = startX + (run * shortPosFactor);
+            const shortH = tallH * shortPosFactor + 0.5;
+            const shortPost = new THREE.Mesh(new THREE.BoxGeometry(0.3, shortH, rampWidth - 0.2), matRed);
+            shortPost.position.set(shortX, shortH / 2, 0);
+            shortPost.castShadow = true;
+            const line = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.16, rampWidth + 0.05), matWhite);
+            line.position.set(-1 - 0.2, rise + 0.5, 0);
+            line.rotation.z = angle;
+            const sand = new THREE.Mesh(new THREE.BoxGeometry(6, 0.05, 4), matSand);
+            sand.position.set(3, 0, 0);
+            g.add(ramp, tallPost, shortPost, line, sand);
+        }
+
+        function buildLongJump(g, len) {
+            const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 3), matRed);
+            drum.rotation.z = Math.PI / 2;
+            drum.position.set(0, 0.6, 0); drum.castShadow = true;
+            const l1 = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.02, 3), matWhite);
+            l1.position.set(-len / 2, 0.02, 0);
+            const l2 = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.02, 3), matWhite);
+            l2.position.set(len / 2, 0.02, 0);
+            const sand = new THREE.Mesh(new THREE.BoxGeometry(len + 2, 0.01, 3.5), matSand);
+            sand.position.set(0, 0, 0);
+            g.add(drum, l1, l2, sand);
+        }
+
+        function buildHighJump(g, h) {
+            const p1 = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, h + 0.5), matWhite);
+            p1.position.set(0, (h + 0.5) / 2, -1.5);
+            const p2 = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, h + 0.5), matWhite);
+            p2.position.set(0, (h + 0.5) / 2, 1.5);
+            const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 3.2), matRed);
+            bar.rotation.x = Math.PI / 2;
+            bar.position.set(0, h, 0);
+            const sand = new THREE.Mesh(new THREE.BoxGeometry(4, 0.01, 4), matSand);
+            sand.position.set(1.5, 0, 0);
+            g.add(p1, p2, bar, sand);
+        }
+
+        function buildZigZag(g) {
+            const h = 1.5;
+            const points = [
+                { x: -4.5, z: 1.5 },
+                { x: -1.5, z: -1.0 },
+                { x: 1.5, z: 1.0 },
+                { x: 4.5, z: -1.5 }
+            ];
+            const postGeo = new THREE.CylinderGeometry(0.1, 0.1, h);
+            points.forEach((pt, i) => {
+                const post = new THREE.Mesh(postGeo, matWhite);
+                post.position.set(pt.x, h / 2, pt.z);
+                post.castShadow = true;
+                g.add(post);
+                if (i < points.length - 1) {
+                    const next = points[i + 1];
+                    const dx = next.x - pt.x;
+                    const dz = next.z - pt.z;
+                    const len = Math.sqrt(dx * dx + dz * dz);
+                    const angle = Math.atan2(dz, dx);
+                    const beam = new THREE.Mesh(new THREE.BoxGeometry(len, 0.15, 0.15), matWood);
+                    const cx = (pt.x + next.x) / 2;
+                    const cz = (pt.z + next.z) / 2;
+                    beam.position.set(cx, h, cz);
+                    beam.rotation.y = -angle;
+                    beam.castShadow = true;
+                    g.add(beam);
+                }
+            });
+            const sand = new THREE.Mesh(new THREE.BoxGeometry(11, 0.05, 6), matSand);
+            sand.position.set(0, 0, 0);
+            g.add(sand);
+        }
+
+        function buildPoleWalk(g, h, len) {
+            const poleGeo = new THREE.CylinderGeometry(0.2, 0.25, len, 8);
+            const pole = new THREE.Mesh(poleGeo, matPole);
+            pole.rotation.z = Math.PI / 2;
+            pole.rotation.x = 0.05;
+            pole.position.set(0, h, 0);
+            pole.castShadow = true;
+            const sup1 = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, h), matMetal);
+            sup1.position.set(-len / 2 + 0.2, h / 2, 0);
+            const sup2 = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, h), matMetal);
+            sup2.position.set(len / 2 - 0.2, h / 2, 0);
+            const base1 = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.1, 0.5), matMetal);
+            base1.position.set(-len / 2 + 0.2, 0, 0);
+            const base2 = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.1, 0.5), matMetal);
+            base2.position.set(len / 2 - 0.2, 0, 0);
+            g.add(pole, sup1, sup2, base1, base2);
+        }
+
+        function buildScreenJump(g) {
+            const benchLen = 5;
+            const benchW = 0.8;
+            const startH = 0.6;
+            const endH = 1.3;
+            const angle = Math.atan((endH - startH) / benchLen);
+            const avgH = (startH + endH) / 2;
+            const centerX = -benchLen / 2 - 0.5;
+            const benchTop = new THREE.Mesh(new THREE.BoxGeometry(benchLen, 0.15, benchW), matGreyWood);
+            benchTop.position.set(centerX, avgH, 0);
+            benchTop.rotation.z = angle;
+            benchTop.castShadow = true;
+            g.add(benchTop);
+            const startX = centerX - benchLen / 2;
+            const slope = (endH - startH) / benchLen;
+            for (let x of [-benchLen - 0.2, -benchLen / 2 - 0.5, -0.8]) {
+                const dist = x - startX;
+                const hAtPoint = startH + (dist * slope);
+                const legH = hAtPoint;
+                const leg = new THREE.Mesh(new THREE.BoxGeometry(0.15, legH, 0.6), matGreyWood);
+                leg.position.set(x, legH / 2, 0);
+                g.add(leg);
+            }
+            const frameH = 5;
+            const frameW = 4;
+            const postGeo = new THREE.BoxGeometry(0.2, frameH, 0.2);
+            const postL = new THREE.Mesh(postGeo, matRed);
+            postL.position.set(0, frameH / 2, -frameW / 2);
+            const postR = new THREE.Mesh(postGeo, matRed);
+            postR.position.set(0, frameH / 2, frameW / 2);
+            const topBar = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, frameW), matRed);
+            topBar.position.set(0, frameH, 0);
+            const curtainGeo = new THREE.PlaneGeometry(3, frameH - 1, 4, 4);
+            const pos = curtainGeo.attributes.position;
+            for (let i = 0; i < pos.count; i++) {
+                pos.setZ(i, pos.getZ(i) + Math.sin(pos.getY(i)) * 0.2);
+            }
+            curtainGeo.computeVertexNormals();
+            const curtain = new THREE.Mesh(curtainGeo, matRedCurtain);
+            curtain.rotation.y = Math.PI / 2;
+            curtain.position.set(0, frameH / 2 + 0.5, 0);
+            const tag = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.8, 0.8), new THREE.MeshStandardMaterial({ color: 0x1565C0 }));
+            tag.position.set(0.15, frameH * 0.6, frameW / 2 + 0.4);
+            tag.rotation.x = -0.2;
+            const sand = new THREE.Mesh(new THREE.BoxGeometry(6, 0.01, 5), matSand);
+            sand.position.set(2, 0, 0);
+            g.add(postL, postR, topBar, curtain, tag, sand);
+        }
+
+        function buildDoublePlatform(g) {
+            // Same as AFSB Jumping Platforms
+            const highH = 4;
+            const lowH = 2.6;
+            const pWidth = 1.5;
+            const pDepth = 1.5;
+            const highPlat = new THREE.Mesh(new THREE.BoxGeometry(pWidth, 0.2, pDepth), matWood);
+            highPlat.position.set(-0.8, highH, 0);
+            highPlat.castShadow = true;
+            const legH1 = new THREE.Mesh(new THREE.BoxGeometry(0.2, highH, 0.2), matWhite); legH1.position.set(-0.8 - pWidth / 2 + 0.1, highH / 2, -pDepth / 2 + 0.1);
+            const legH2 = new THREE.Mesh(new THREE.BoxGeometry(0.2, highH, 0.2), matWhite); legH2.position.set(-0.8 + pWidth / 2 - 0.1, highH / 2, -pDepth / 2 + 0.1);
+            const legH3 = new THREE.Mesh(new THREE.BoxGeometry(0.2, highH, 0.2), matWhite); legH3.position.set(-0.8 - pWidth / 2 + 0.1, highH / 2, pDepth / 2 - 0.1);
+            const legH4 = new THREE.Mesh(new THREE.BoxGeometry(0.2, highH, 0.2), matWhite); legH4.position.set(-0.8 + pWidth / 2 - 0.1, highH / 2, pDepth / 2 - 0.1);
+            const lowPlat = new THREE.Mesh(new THREE.BoxGeometry(pWidth, 0.2, pDepth), matWood);
+            lowPlat.position.set(0.8, lowH, 0);
+            lowPlat.castShadow = true;
+            const legL1 = new THREE.Mesh(new THREE.BoxGeometry(0.2, lowH, 0.2), matWhite); legL1.position.set(0.8 - pWidth / 2 + 0.1, lowH / 2, -pDepth / 2 + 0.1);
+            const legL2 = new THREE.Mesh(new THREE.BoxGeometry(0.2, lowH, 0.2), matWhite); legL2.position.set(0.8 + pWidth / 2 - 0.1, lowH / 2, -pDepth / 2 + 0.1);
+            const legL3 = new THREE.Mesh(new THREE.BoxGeometry(0.2, lowH, 0.2), matWhite); legL3.position.set(0.8 - pWidth / 2 + 0.1, lowH / 2, pDepth / 2 - 0.1);
+            const legL4 = new THREE.Mesh(new THREE.BoxGeometry(0.2, lowH, 0.2), matWhite); legL4.position.set(0.8 + pWidth / 2 - 0.1, lowH / 2, pDepth / 2 - 0.1);
+            const ladderLen = Math.sqrt(highH * highH + 2 * 2);
+            const ladder = new THREE.Group();
+            const rail1 = new THREE.Mesh(new THREE.BoxGeometry(0.1, ladderLen, 0.1), matMetal); rail1.position.set(0, 0, -0.25);
+            const rail2 = new THREE.Mesh(new THREE.BoxGeometry(0.1, ladderLen, 0.1), matMetal); rail2.position.set(0, 0, 0.25);
+            for (let i = 0; i < 10; i++) {
+                const rung = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.5), matMetal);
+                rung.rotation.z = Math.PI / 2; rung.position.set(0, -ladderLen / 2 + (i * (ladderLen / 10)) + 0.5, 0);
+                ladder.add(rung);
+            }
+            ladder.add(rail1, rail2);
+            ladder.rotation.z = -0.5;
+            ladder.position.set(-2.5, highH / 2, 0);
+            const sand = new THREE.Mesh(new THREE.BoxGeometry(4, 0.05, 4), matSand);
+            sand.position.set(2.5, 0, 0);
+            g.add(highPlat, legH1, legH2, legH3, legH4, lowPlat, legL1, legL2, legL3, legL4, ladder, sand);
+        }
+
+        function buildTyreJump(g) {
+            const frameH = 3;
+            const frameW = 3;
+            const postGeo = new THREE.BoxGeometry(0.25, frameH, 0.25);
+            const p1 = new THREE.Mesh(postGeo, matWood); p1.position.set(-frameW / 2, frameH / 2, 0);
+            const p2 = new THREE.Mesh(postGeo, matWood); p2.position.set(frameW / 2, frameH / 2, 0);
+            const top = new THREE.Mesh(new THREE.BoxGeometry(frameW + 0.5, 0.25, 0.25), matWood);
+            top.position.set(0, frameH, 0);
+            const ropeH = 1.0;
+            const rope = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, ropeH), matRope);
+            rope.position.set(0, frameH - ropeH / 2, 0);
+            const tyreGeo = new THREE.TorusGeometry(0.6, 0.2, 16, 32);
+            const tyre = new THREE.Mesh(tyreGeo, new THREE.MeshStandardMaterial({ color: 0x212121, roughness: 0.8 }));
+            tyre.position.set(0, frameH - ropeH - 0.6, 0);
+            tyre.rotation.y = 0;
+            const sand = new THREE.Mesh(new THREE.BoxGeometry(4, 0.05, 4), matSand);
+            sand.position.set(0, 0, 0);
+            g.add(p1, p2, top, rope, tyre, sand);
+        }
+
+        function buildJumpingPlatforms(g) {
+            buildDoublePlatform(g); // Same function
+        }
+
+        function buildWall(g, h_ft) {
+            const wallH = 2.6;
+            const wallW = 2.5;
+            const wallThick = 0.3;
+            const wall = new THREE.Mesh(new THREE.BoxGeometry(wallW, wallH, wallThick), matWhite);
+            wall.position.set(0, wallH / 2, 0); wall.castShadow = true;
+            const topEdge = new THREE.Mesh(new THREE.BoxGeometry(wallW, 0.1, wallThick + 0.02), matRed);
+            topEdge.position.set(0, wallH, 0);
+            const rampLen = 2.5; const rampH = 1.0;
+            const shape = new THREE.Shape();
+            shape.moveTo(0, 0); shape.lineTo(0, rampH); shape.lineTo(rampLen, 0); shape.lineTo(0, 0);
+            const extrudeSettings = { steps: 1, depth: wallW, bevelEnabled: false };
+            const rampGeo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+            const rampMesh = new THREE.Mesh(rampGeo, matGround);
+            rampMesh.rotation.y = -Math.PI / 2; rampMesh.position.set(wallW / 2, 0, 0);
+            const sand = new THREE.Mesh(new THREE.BoxGeometry(wallW + 1, 0.05, 3), matSand);
+            sand.position.set(0, 0, -2);
+            g.add(wall, topEdge, rampMesh, sand);
+        }
+
+        function buildBurmaBridge(g) {
+            const h = 7; const w = 12; const sag = 1.2;
+            const postGeo = new THREE.CylinderGeometry(0.25, 0.3, h + 2, 8);
+            const p1 = new THREE.Mesh(postGeo, matWhite); p1.position.set(0, (h + 2) / 2, -w / 2);
+            const p2 = new THREE.Mesh(postGeo, matWhite); p2.position.set(0, (h + 2) / 2, w / 2);
+            const pointsTop = [new THREE.Vector3(0, h, -w / 2), new THREE.Vector3(0, h - sag, 0), new THREE.Vector3(0, h, w / 2)];
+            const curveTop = new THREE.CatmullRomCurve3(pointsTop);
+            const tubeTop = new THREE.Mesh(new THREE.TubeGeometry(curveTop, 20, 0.04, 8, false), matRope);
+            const gap = 1.4;
+            const pointsBot = [new THREE.Vector3(0, h - gap, -w / 2), new THREE.Vector3(0, h - gap - sag, 0), new THREE.Vector3(0, h - gap, w / 2)];
+            const curveBot = new THREE.CatmullRomCurve3(pointsBot);
+            const tubeBot = new THREE.Mesh(new THREE.TubeGeometry(curveBot, 20, 0.04, 8, false), matRope);
+            const ladderW = 0.8; const ropeH = h - gap; const baseDist = 3.5;
+            const ladderLen = Math.sqrt(ropeH * ropeH + baseDist * baseDist) + 1;
+            const createLadder = () => {
+                const grp = new THREE.Group();
+                const lRail = new THREE.Mesh(new THREE.BoxGeometry(0.1, ladderLen, 0.1), matMetal); lRail.position.set(-ladderW / 2, 0, 0);
+                const rRail = new THREE.Mesh(new THREE.BoxGeometry(0.1, ladderLen, 0.1), matMetal); rRail.position.set(ladderW / 2, 0, 0);
+                const nSteps = Math.floor(ladderLen / 0.4);
+                for (let i = 0; i < nSteps; i++) {
+                    const r = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, ladderW), matMetal);
+                    r.position.set(0, -ladderLen / 2 + i * 0.4 + 0.4, 0); r.rotation.z = Math.PI / 2;
+                    grp.add(r);
+                }
+                grp.add(lRail, rRail); return grp;
+            };
+            const angle = Math.atan(baseDist / ropeH);
+            const lad1 = createLadder(); lad1.rotation.x = angle; lad1.position.set(0, ropeH / 2, -w / 2 - baseDist / 2);
+            const lad2 = createLadder(); lad2.rotation.x = -angle; lad2.position.set(0, ropeH / 2, w / 2 + baseDist / 2);
+            const guyL = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, h * 1.8), matMetal); guyL.position.set(0, h / 2, -w / 2 - 3); guyL.lookAt(0, h, -w / 2); guyL.rotateX(Math.PI / 2);
+            const guyR = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, h * 1.8), matMetal); guyR.position.set(0, h / 2, w / 2 + 3); guyR.lookAt(0, h, w / 2); guyR.rotateX(Math.PI / 2);
+            g.add(p1, p2, tubeTop, tubeBot, lad1, lad2, guyL, guyR);
+        }
+
+        function buildTarzan(g, dist) {
+            const platH = 3.5; const platSize = 1.5;
+            const plat = new THREE.Mesh(new THREE.BoxGeometry(platSize, 0.2, platSize), matWood);
+            plat.position.set(-dist, platH, 0); plat.castShadow = true;
+            const legs = new THREE.Group();
+            const legGeo = new THREE.BoxGeometry(0.15, platH, 0.15);
+            const l1 = new THREE.Mesh(legGeo, matWhite); l1.position.set(-platSize / 2 + 0.1, -platH / 2, -platSize / 2 + 0.1);
+            const l2 = new THREE.Mesh(legGeo, matWhite); l2.position.set(platSize / 2 - 0.1, -platH / 2, -platSize / 2 + 0.1);
+            const l3 = new THREE.Mesh(legGeo, matWhite); l3.position.set(-platSize / 2 + 0.1, -platH / 2, platSize / 2 - 0.1);
+            const l4 = new THREE.Mesh(legGeo, matWhite); l4.position.set(platSize / 2 - 0.1, -platH / 2, platSize / 2 - 0.1);
+            legs.add(l1, l2, l3, l4); legs.position.set(-dist, platH, 0);
+            const ladder = new THREE.Group();
+            const ladH = platH + 0.5;
+            const rail1 = new THREE.Mesh(new THREE.BoxGeometry(0.1, ladH, 0.1), matMetal); rail1.position.set(-0.25, 0, 0);
+            const rail2 = new THREE.Mesh(new THREE.BoxGeometry(0.1, ladH, 0.1), matMetal); rail2.position.set(0.25, 0, 0);
+            for (let i = 0; i < 8; i++) {
+                const r = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.5), matMetal);
+                r.rotation.z = Math.PI / 2; r.position.set(0, -ladH / 2 + i * (ladH / 8) + 0.2, 0);
+                ladder.add(r);
+            }
+            ladder.add(rail1, rail2); ladder.rotation.y = Math.PI / 2; ladder.position.set(-dist - platSize / 2 - 0.1, platH / 2, 0);
+            const ropeLen = 6; const ropeTopY = platH + 4; const ropeX = -dist + 2;
+            const skySupport = new THREE.Mesh(new THREE.BoxGeometry(0.2, 8, 0.2), matMetal);
+            skySupport.position.set(ropeX, ropeTopY / 2, 3);
+            const skyArm = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 4), matMetal);
+            skyArm.position.set(ropeX, ropeTopY, 1.5);
+            const ropeGeo = new THREE.CylinderGeometry(0.03, 0.03, ropeLen);
+            const rope = new THREE.Mesh(ropeGeo, matRope);
+            rope.position.set(ropeX, ropeTopY - ropeLen / 2, 0);
+            const finishLine = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.05, 4), matRed);
+            finishLine.position.set(0, 0.02, 0);
+            const sand = new THREE.Mesh(new THREE.BoxGeometry(5, 0.05, 4), matSand);
+            sand.position.set(2, 0, 0);
+            g.add(plat, legs, ladder, skySupport, skyArm, rope, finishLine, sand);
+        }
+
+        function buildDoubleDitch(g, w1, w2) {
+            const ditchW1 = 6; const ditchW2 = 3; const islandW = 2; const frameH = 5;
+            const d1 = new THREE.Mesh(new THREE.PlaneGeometry(ditchW1, 5), matDark);
+            d1.rotation.x = -Math.PI / 2; d1.position.set(-islandW / 2 - ditchW1 / 2, 0.02, 0);
+            const island = new THREE.Mesh(new THREE.BoxGeometry(islandW, 0.2, 5), matGround);
+            island.position.set(0, 0.1, 0);
+            const d2 = new THREE.Mesh(new THREE.PlaneGeometry(ditchW2, 5), matDark);
+            d2.rotation.x = -Math.PI / 2; d2.position.set(islandW / 2 + ditchW2 / 2, 0.02, 0);
+            const frameX = -islandW / 2 - ditchW1 - 1.5;
+            const postGeo = new THREE.CylinderGeometry(0.15, 0.15, frameH);
+            const p1 = new THREE.Mesh(postGeo, matWood); p1.position.set(frameX, frameH / 2, -1.5);
+            const p2 = new THREE.Mesh(postGeo, matWood); p2.position.set(frameX, frameH / 2, 1.5);
+            const crossbar = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 3.2), matWood);
+            crossbar.rotation.x = Math.PI / 2; crossbar.position.set(frameX, frameH - 0.2, 0);
+            const ropeLen = frameH - 0.5;
+            const rope = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, ropeLen), matRope);
+            rope.position.set(frameX + 0.5, frameH - 0.2 - ropeLen / 2, 0); rope.rotation.z = 0.1;
+            const sand = new THREE.Mesh(new THREE.BoxGeometry(3, 0.05, 4), matSand);
+            sand.position.set(islandW / 2 + ditchW2 + 1.5, 0, 0);
+            g.add(d1, island, d2, p1, p2, crossbar, rope, sand);
+        }
+
+        function buildCommando(g, h) {
+            const beamLen = 6; const beamW = 0.6; const height = 3.5;
+            const beam = new THREE.Mesh(new THREE.BoxGeometry(beamLen, 0.2, beamW), matRed);
+            beam.position.set(0, height, 0); beam.castShadow = true;
+            const topSurf = new THREE.Mesh(new THREE.PlaneGeometry(beamLen, beamW - 0.05), matWhite);
+            topSurf.rotation.x = -Math.PI / 2; topSurf.position.set(0, height + 0.11, 0);
+            const leanDist = 1.5;
+            const ladLen = Math.sqrt(height * height + leanDist * leanDist);
+            const angle = Math.atan(leanDist / height);
+            const createLadder = () => {
+                const grp = new THREE.Group();
+                const railGeo = new THREE.BoxGeometry(0.1, ladLen, 0.1);
+                const r1 = new THREE.Mesh(railGeo, matRed); r1.position.set(0, 0, -0.3);
+                const r2 = new THREE.Mesh(railGeo, matRed); r2.position.set(0, 0, 0.3);
+                grp.add(r1, r2);
+                for (let i = 0; i < 10; i++) {
+                    const r = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 0.6), matWhite);
+                    r.position.set(0, -ladLen / 2 + i * (ladLen / 10) + 0.3, 0);
+                    grp.add(r);
+                }
+                return grp;
+            }
+            const lad1 = createLadder(); lad1.position.set(-beamLen / 2 - leanDist / 2, height / 2, 0); lad1.rotation.z = -angle;
+            const lad2 = createLadder(); lad2.position.set(beamLen / 2 + leanDist / 2, height / 2, 0); lad2.rotation.z = angle;
+            const blockW = beamW; const stepLen = 0.5; const lowH = 0.4; const highH = 0.7;
+            const centerGrp = new THREE.Group(); centerGrp.position.set(0, height + 0.1, 0);
+            const b1 = new THREE.Mesh(new THREE.BoxGeometry(stepLen, lowH, blockW), matWhite); b1.position.set(-stepLen, lowH / 2, 0);
+            const b1s1 = new THREE.Mesh(new THREE.PlaneGeometry(stepLen, lowH), matRed); b1s1.position.set(-stepLen, lowH / 2, blockW / 2 + 0.01);
+            const b1s2 = new THREE.Mesh(new THREE.PlaneGeometry(stepLen, lowH), matRed); b1s2.position.set(-stepLen, lowH / 2, -blockW / 2 - 0.01); b1s2.rotation.y = Math.PI;
+            const b2 = new THREE.Mesh(new THREE.BoxGeometry(stepLen, highH, blockW), matWhite); b2.position.set(0, highH / 2, 0);
+            const b2s1 = new THREE.Mesh(new THREE.PlaneGeometry(stepLen, highH), matRed); b2s1.position.set(0, highH / 2, blockW / 2 + 0.01);
+            const b2s2 = new THREE.Mesh(new THREE.PlaneGeometry(stepLen, highH), matRed); b2s2.position.set(0, highH / 2, -blockW / 2 - 0.01); b2s2.rotation.y = Math.PI;
+            const b3 = new THREE.Mesh(new THREE.BoxGeometry(stepLen, lowH, blockW), matWhite); b3.position.set(stepLen, lowH / 2, 0);
+            const b3s1 = new THREE.Mesh(new THREE.PlaneGeometry(stepLen, lowH), matRed); b3s1.position.set(stepLen, lowH / 2, blockW / 2 + 0.01);
+            const b3s2 = new THREE.Mesh(new THREE.PlaneGeometry(stepLen, lowH), matRed); b3s2.position.set(stepLen, lowH / 2, -blockW / 2 - 0.01); b3s2.rotation.y = Math.PI;
+            centerGrp.add(b1, b1s1, b1s2, b2, b2s1, b2s2, b3, b3s1, b3s2);
+            const sand = new THREE.Mesh(new THREE.BoxGeometry(beamLen + leanDist * 2 + 2, 0.05, 4), matSand);
+            sand.position.set(0, 0, 0);
+            g.add(beam, topSurf, lad1, lad2, centerGrp, sand);
+        }
+
+        function buildMonkeyCrawl(g, len_ft) {
+            const len = 7; const h = 1.5; const sag = 0.6;
+            const postGeo = new THREE.CylinderGeometry(0.12, 0.12, h + 0.5);
+            const p1 = new THREE.Mesh(postGeo, matWood); p1.position.set(-len / 2, h / 2, 0);
+            const p2 = new THREE.Mesh(postGeo, matWood); p2.position.set(len / 2, h / 2, 0);
+            const curve = new THREE.CatmullRomCurve3([
+                new THREE.Vector3(-len / 2, h, 0), new THREE.Vector3(-len / 4, h - sag * 0.7, 0),
+                new THREE.Vector3(0, h - sag, 0), new THREE.Vector3(len / 4, h - sag * 0.7, 0), new THREE.Vector3(len / 2, h, 0)
+            ]);
+            const ropeGeo = new THREE.TubeGeometry(curve, 64, 0.05, 12, false);
+            const rope = new THREE.Mesh(ropeGeo, matJuteRope);
+            const sand = new THREE.Mesh(new THREE.BoxGeometry(len + 2, 0.05, 3), matSand);
+            sand.position.set(0, 0, 0);
+            g.add(p1, p2, rope, sand);
+        }
+
+        function buildRopeClimb(g, h_ft) {
+            const h = 5; const armLen = 2.5; const gapFromGround = 0.4;
+            const postGeo = new THREE.CylinderGeometry(0.15, 0.2, h + 1);
+            const post = new THREE.Mesh(postGeo, matMetal); post.position.set(-armLen, (h + 1) / 2, 0);
+            const armGeo = new THREE.BoxGeometry(armLen + 0.5, 0.15, 0.15);
+            const arm = new THREE.Mesh(armGeo, matMetal); arm.position.set(-armLen / 2, h, 0);
+            const ropeLen = h - gapFromGround;
+            const ropeGeo = new THREE.CylinderGeometry(0.04, 0.04, ropeLen);
+            const rope = new THREE.Mesh(ropeGeo, matJuteRope);
+            const centerY = gapFromGround + (ropeLen / 2);
+            rope.position.set(0, centerY, 0);
+            const sand = new THREE.Mesh(new THREE.BoxGeometry(3, 0.05, 3), matSand);
+            sand.position.set(0, 0, 0);
+            g.add(post, arm, rope, sand);
+        }
+
+        function buildTigerLeap(g, dist) {
+            const platH = 4; const platW = 1.2; const jumpDist = dist;
+            const platX = -jumpDist - 1;
+            const plat = new THREE.Mesh(new THREE.BoxGeometry(platW, 0.2, platW), matWood);
+            plat.position.set(platX, platH, 0); plat.castShadow = true;
+            const legGeo = new THREE.BoxGeometry(0.15, platH, 0.15);
+            const l1 = new THREE.Mesh(legGeo, matWhite); l1.position.set(platX - platW / 2 + 0.1, platH / 2, -platW / 2 + 0.1);
+            const l2 = new THREE.Mesh(legGeo, matWhite); l2.position.set(platX + platW / 2 - 0.1, platH / 2, -platW / 2 + 0.1);
+            const l3 = new THREE.Mesh(legGeo, matWhite); l3.position.set(platX - platW / 2 + 0.1, platH / 2, platW / 2 - 0.1);
+            const l4 = new THREE.Mesh(legGeo, matWhite); l4.position.set(platX + platW / 2 - 0.1, platH / 2, platW / 2 - 0.1);
+            const ladder = new THREE.Group();
+            const ladH = platH;
+            const rail1 = new THREE.Mesh(new THREE.BoxGeometry(0.1, ladH, 0.1), matMetal); rail1.position.set(-0.25, 0, 0);
+            const rail2 = new THREE.Mesh(new THREE.BoxGeometry(0.1, ladH, 0.1), matMetal); rail2.position.set(0.25, 0, 0);
+            ladder.add(rail1, rail2);
+            for (let i = 0; i < 10; i++) {
+                const r = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.5), matMetal);
+                r.rotation.z = Math.PI / 2; r.position.set(0, -ladH / 2 + i * (ladH / 10) + 0.4, 0);
+                ladder.add(r);
+            }
+            ladder.rotation.y = Math.PI / 2; ladder.position.set(platX - platW / 2 - 0.1, platH / 2, 0);
+            const ropeTopY = platH + 3; const ropeLen = platH + 2.5;
+            const poleH = ropeTopY;
+            const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, poleH), matWhite);
+            pole.position.set(0, poleH / 2, 2.5);
+            const arm = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 3.5), matWhite);
+            arm.position.set(0, ropeTopY, 1);
+            const rope = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, ropeLen), matRope);
+            rope.position.set(0, ropeTopY - ropeLen / 2, 0);
+            const sand = new THREE.Mesh(new THREE.BoxGeometry(jumpDist + 4, 0.05, 4), matSand);
+            sand.position.set(platX + (jumpDist + 2) / 2, 0, 0);
+            g.add(plat, l1, l2, l3, l4, ladder, pole, arm, rope, sand);
+        }
+
+        // Interaction Handlers
+        function toggleGender() {
+            const btn = document.getElementById('modeBtn');
+            if (currentMode === MODE_MEN) {
+                currentMode = MODE_WOMEN;
+                btn.innerText = "Mode: Women/AF";
+                btn.classList.add("female");
+            } else {
+                currentMode = MODE_MEN;
+                btn.innerText = "Mode: Men (Standard)";
+                btn.classList.remove("female");
+            }
+            buildScene(); refreshCard();
+        }
+
+        function toggleBoard() {
+            const btn = document.getElementById('boardBtn');
+            if (currentBoard === BOARD_SSB) {
+                currentBoard = BOARD_AFSB;
+                btn.innerText = "Board: AFSB";
+                btn.classList.add("afsb");
+            } else {
+                currentBoard = BOARD_SSB;
+                btn.innerText = "Board: SSB";
+                btn.classList.remove("afsb");
+            }
+            refreshObstacleDB(); buildScene(); refreshCard();
+        }
+
+        function refreshCard() {
+            const card = document.getElementById('info-card');
+            if (card.style.display === 'block') {
+                const id = parseInt(document.getElementById('c-title').getAttribute('data-id'));
+                if (id) showCard(id);
+            }
+        }
+
+        function navigate(dir) {
+            let next = currentIdx + dir;
+            if (next < -1) next = -1;
+            if (next >= obstacleDB.length) next = obstacleDB.length - 1;
+            currentIdx = next;
+            updateUI();
+            if (currentIdx === -1) {
+                new TWEEN.Tween(camera.position).to({ x: 0, y: 50, z: 90 }, 1500).easing(TWEEN.Easing.Quadratic.Out).start();
+                new TWEEN.Tween(controls.target).to({ x: 0, y: 0, z: 0 }, 1500).easing(TWEEN.Easing.Quadratic.Out).start();
+            } else {
+                const obs = obstacleDB[currentIdx];
+                const viewX = obs.pos.x + 10 * Math.sin(obs.pos.rot);
+                const viewZ = obs.pos.z + 10 * Math.cos(obs.pos.rot);
+                new TWEEN.Tween(camera.position).to({ x: viewX, y: 8, z: viewZ + 12 }, 1500).easing(TWEEN.Easing.Cubic.InOut).start();
+                new TWEEN.Tween(controls.target).to({ x: obs.pos.x, y: 2, z: obs.pos.z }, 1500).easing(TWEEN.Easing.Cubic.InOut).start();
+            }
+        }
+
+        function updateUI() {
+            const ind = document.getElementById('stepInd');
+            if (currentIdx === -1) {
+                ind.innerText = "Start";
+                ind.style.cursor = "pointer";
+                ind.onclick = function () { navigate(1); };
+            }
+            else {
+                ind.innerText = `${currentIdx + 1} / ${obstacleDB.length}`;
+                ind.style.cursor = "default";
+                ind.onclick = null;
+            }
+        }
+
+        function onClick(e) {
+            mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+            const raycaster = new THREE.Raycaster();
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(obstacleMeshes, true);
+            if (intersects.length > 0) {
+                let obj = intersects[0].object;
+                while (obj.parent && !obj.userData.id) obj = obj.parent;
+                if (obj.userData.id) { showCard(obj.userData.id); }
+            }
+        }
+
+        function showCard(id) {
+            const data = obstacleDB.find(o => o.id === id);
+            if (!data) return;
+
+            const titleEl = document.getElementById('c-title');
+            titleEl.innerText = data.name;
+            titleEl.setAttribute('data-id', id);
+
+            // Generate structured HTML for the card body
+            const bodyEl = document.getElementById('c-body');
+            let html = '';
+
+            // Dynamic Config Selection based on Mode
+            const configText = currentMode === MODE_MEN ? data.config.men : data.config.women;
+
+            if (configText) {
+                html += `<div class="section-title">Configuration</div>`;
+                html += `<p class="section-text">${configText}</p>`;
+            }
+
+            if (data.action) {
+                html += `<div class="section-title">What to Do</div>`;
+                html += `<p class="section-text">${data.action}</p>`;
+            }
+
+            if (data.tips && data.tips.length > 0) {
+                html += `<div class="section-title">Tips</div>`;
+                html += `<ul class="tips-list">`;
+                data.tips.forEach(tip => {
+                    html += `<li>${tip}</li>`;
+                });
+                html += `</ul>`;
+            }
+
+            bodyEl.innerHTML = html;
+
+            // Tags - REMOVED automatic Gap/Height tags to avoid redundancy
+            const tags = document.getElementById('c-tags');
+            tags.innerHTML = `<span class="tag" style="background:#f1c40f; color:black;">${data.points} Pts</span>`;
+
+            document.getElementById('info-card').style.display = 'block';
+        }
+
+        function closeCard() {
+            document.getElementById('info-card').style.display = 'none';
+        }
+
+        function onResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate(t) {
+            requestAnimationFrame(animate);
+            TWEEN.update(t);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        window.onload = init;
+    </script>
+</body>
+
+</html>

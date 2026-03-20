@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>SSB Snake Race 3D Simulator</title>
+    <style>
+        /* --- CSS Reset & Mobile Base --- */
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #87CEEB;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        #canvas-container {
+            width: 100%;
+            height: 100vh;
+            display: block;
+            touch-action: none;
+            /* Important for 3D controls */
+        }
+
+        /* --- UI Overlay --- */
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        /* Top Bar */
+        .top-bar {
+            padding: 15px;
+            background: linear-gradient(to bottom, rgba(0, 0, 0, 0.8), transparent);
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            pointer-events: auto;
+        }
+
+        .title-container h1 {
+            margin: 0;
+            font-size: 1.2rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #f1c40f;
+        }
+
+        .title-container p {
+            margin: 5px 0 0 0;
+            font-size: 0.9rem;
+            color: #ddd;
+        }
+
+        .info-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid white;
+            color: white;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            font-weight: bold;
+            font-size: 1.2rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            backdrop-filter: blur(4px);
+        }
+
+        .back-btn {
+            background: rgba(0, 0, 0, 0.6);
+            border: 2px solid white;
+            color: white;
+            border-radius: 25px;
+            padding: 8px 20px;
+            font-size: 0.9rem;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            backdrop-filter: blur(4px);
+            transition: background 0.2s;
+        }
+
+        .back-btn:hover {
+            background: rgba(0, 0, 0, 0.8);
+        }
+
+        /* Bottom Controls */
+        .controls-bar {
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            pointer-events: auto;
+            background: linear-gradient(to top, rgba(0, 0, 0, 0.8), transparent);
+        }
+
+        .nav-btn {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            padding: 15px 25px;
+            border-radius: 30px;
+            font-size: 1rem;
+            font-weight: bold;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+            transition: transform 0.1s, background 0.2s;
+            min-width: 100px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .nav-btn:active {
+            transform: scale(0.95);
+        }
+
+        .nav-btn.prev {
+            background: #34495e;
+        }
+
+        .nav-btn:disabled {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        .current-step {
+            color: white;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 5px 15px;
+            border-radius: 15px;
+            font-size: 0.9rem;
+        }
+
+        /* --- Modal --- */
+        .modal-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 100;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            pointer-events: auto;
+            backdrop-filter: blur(3px);
+        }
+
+        .modal-card {
+            background: white;
+            width: 90%;
+            max-width: 450px;
+            max-height: 85vh;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+            animation: slideUp 0.3s ease-out;
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(20px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .modal-header {
+            background: #2c3e50;
+            color: white;
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h2 {
+            margin: 0;
+            font-size: 1.1rem;
+        }
+
+        .modal-body {
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .spec-tag {
+            display: inline-block;
+            background: #eee;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            margin-right: 5px;
+            margin-bottom: 5px;
+            color: #555;
+            font-weight: bold;
+        }
+
+        h3 {
+            color: #e74c3c;
+            font-size: 1rem;
+            margin: 15px 0 5px 0;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 5px;
+        }
+
+        p {
+            font-size: 0.95rem;
+            line-height: 1.5;
+            color: #333;
+            margin: 0;
+        }
+
+        .close-modal-btn {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            width: 100%;
+            padding: 15px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        /* Loading */
+        #loader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #2c3e50;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 999;
+            transition: opacity 0.5s;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #e74c3c;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 15px;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+
+    <!-- Three.js & Tween.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
+    <script defer src="https://onessb.com/~flock.js" data-proxy-url="https://onessb.com/~api/analytics"></script>
+    <meta name="twitter:image"
+        content="https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/9b1b204f-41cf-422e-8216-f7d6c25e8d6e/id-preview-05af6b1d--59085dc5-2dfa-44a2-a438-58d6ea6a83c7.lovable.app-1773074008560.png" />
+</head>
+
+<body>
+
+    <!-- Loader -->
+    <div id="loader">
+        <div class="spinner"></div>
+        <div>Loading GTO Ground...</div>
+    </div>
+
+    <!-- UI Layer -->
+    <div id="ui-layer">
+        <div class="top-bar">
+            <button class="back-btn" onclick="window.parent.history.back()">
+                <span>&#8592;</span> Back
+            </button>
+            <div class="title-container">
+                <h1 id="obs-title">START LINE</h1>
+                <p id="obs-subtitle">Tap 'Next' to begin</p>
+            </div>
+            <div class="info-btn" onclick="showInfo()">i</div>
+        </div>
+
+        <div class="controls-bar">
+            <button class="nav-btn prev" id="btn-prev" onclick="navigate(-1)" disabled>&#8592;</button>
+            <div class="current-step" id="step-indicator">0 / 6</div>
+            <button class="nav-btn" id="btn-next" onclick="navigate(1)">Start &#8594;</button>
+        </div>
+    </div>
+
+    <!-- Modal -->
+    <div class="modal-overlay" id="modal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h2 id="m-title">Obstacle Name</h2>
+                <span style="font-size:1.5rem; cursor:pointer;" onclick="hideInfo()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div id="m-specs"></div>
+                <h3>How to Clear</h3>
+                <p id="m-clear"></p>
+                <h3>Rules & Tips</h3>
+                <p id="m-tips"></p>
+            </div>
+            <button class="close-modal-btn" onclick="hideInfo()">CLOSE</button>
+        </div>
+    </div>
+
+    <div id="canvas-container"></div>
+
+    <script>
+        // --- Data ---
+        const obstacles = [
+            {
+                id: 0,
+                name: "Start Line & The Snake",
+                subtitle: "Briefing & Rules",
+                pos: { x: -60, y: 5, z: 10 },
+                lookAt: { x: -50, y: 0, z: 0 },
+                desc: "The 'Snake' is a long, heavy rolled-up tent (approx 8-10ft long) often filled with sand or rubble. The group must carry it through the entire course.",
+                specs: ["Length: ~10ft", "Min Holders: 3", "Do Not Touch Ground"],
+                tips: "1. Minimum 3 candidates must hold the snake while crossing obstacles.\n2. ALL candidates must hold it while running between obstacles.\n3. The snake must NEVER touch the ground.\n4. Do not fold or shorten the snake."
+            },
+            {
+                id: 1,
+                name: "Ramp & Jump",
+                subtitle: "Obstacle 1",
+                pos: { x: -38, y: 6, z: 10 },
+                lookAt: { x: -30, y: 1, z: 0 },
+                desc: "Climb the 4-lane inclined wooden ramp structure. Once at the top, jump across the red line to the other side (sand pit).",
+                specs: ["Height: ~4.5ft", "4 Lanes", "Red Jump Line"],
+                tips: "Run up with momentum. Ensure the snake holder doesn't hesitate at the jump. Land on both feet."
+            },
+            {
+                id: 2,
+                name: "Figure of Eight",
+                subtitle: "Obstacle 2",
+                pos: { x: -20, y: 7, z: 10 },
+                lookAt: { x: -15, y: 1, z: 0 },
+                desc: "Navigate through the parallel frames (waist height) in a figure-of-8 pattern. Go over one, under the next as directed.",
+                specs: ["Height: ~4.5ft", "Single Frame", "Red Posts"],
+                tips: "Don't tangle the snake. The leader must guide the path clearly. Avoid touching vertical red supports."
+            },
+            {
+                id: 3,
+                name: "Spider Web",
+                subtitle: "Obstacle 3",
+                pos: { x: -2, y: 6, z: 10 },
+                lookAt: { x: 0, y: 2, z: 0 },
+                desc: "An A-Frame structure covered in nets. The whole group and the snake must climb up one side and down the other.",
+                specs: ["Height: 9ft", "A-Frame", "Nylon Net"],
+                tips: "Pass the snake carefully over the top ridge. Don't touch the side support poles (Red)."
+            },
+            {
+                id: 4,
+                name: "Double Wall",
+                subtitle: "Obstacle 4",
+                pos: { x: 15, y: 7, z: 10 },
+                lookAt: { x: 20, y: 2, z: 0 },
+                desc: "Two walls of equal height connected by a balance beam. Climb the first wall, walk across the beam, and climb/jump down the second wall.",
+                specs: ["Wall 1: ~6ft", "Wall 2: ~6ft", "White Beam"],
+                tips: "Maintain balance on the beam. Help lighter members up the walls. Move slowly to stop the snake from swinging."
+            },
+            {
+                id: 5,
+                name: "High Wall",
+                subtitle: "Obstacle 5",
+                pos: { x: 32, y: 8, z: 12 },
+                lookAt: { x: 35, y: 4, z: 0 },
+                desc: "A single sheer wall. Candidates must help each other climb over using the double-boost technique.",
+                specs: ["Height: 8ft", "White Wall", "Red Side Strips"],
+                tips: "Strongest candidate goes first (assisted) to pull others up. Last person needs a good jump and a hand from above."
+            },
+            {
+                id: 6,
+                name: "Giant Slide",
+                subtitle: "Obstacle 6",
+                pos: { x: 50, y: 10, z: 15 },
+                lookAt: { x: 55, y: 4, z: 0 },
+                desc: "Climb the 3-lane inclined rods (using the notches) and slide down the 3-lane slide on the other side.",
+                specs: ["Height: ~10ft", "3 Climbing Rods", "3 Slides"],
+                tips: "Do not slide down standing up (safety hazard). Keep the snake on your laps while sliding to prevent friction burns."
+            }
+        ];
+
+        // --- 3D Engine Vars ---
+        let scene, camera, renderer, controls;
+        let currentStep = 0;
+        let clickableObjects = [];
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+
+        // Materials
+        const matWhite = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.8 });
+        const matRed = new THREE.MeshStandardMaterial({ color: 0xd32f2f, roughness: 0.6 });
+        const matWood = new THREE.MeshStandardMaterial({ color: 0x8B4513, roughness: 0.9, metalness: 0.1 });
+        const matGround = new THREE.MeshStandardMaterial({ color: 0x4caf50, roughness: 1 });
+        const matSand = new THREE.MeshStandardMaterial({ color: 0xf4a460, roughness: 1 });
+        const matMetal = new THREE.MeshStandardMaterial({ color: 0x7f8c8d, roughness: 0.4, metalness: 0.7 });
+        const matRope = new THREE.MeshStandardMaterial({ color: 0xdcbea6, roughness: 1 }); // Light beige rope
+        const matSnake = new THREE.MeshStandardMaterial({ color: 0x5d4037, roughness: 1 });
+
+        function init() {
+            const container = document.getElementById('canvas-container');
+
+            // Scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x87CEEB);
+            scene.fog = new THREE.Fog(0x87CEEB, 30, 100);
+
+            // Camera
+            camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 0.1, 200);
+
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.setPixelRatio(window.devicePixelRatio);
+            container.appendChild(renderer.domElement);
+
+            // Controls
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.1;
+            controls.enablePan = false;
+            controls.minDistance = 5;
+            controls.maxDistance = 35;
+            controls.maxPolarAngle = Math.PI / 2 - 0.1;
+
+            // Lights
+            const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
+            scene.add(hemiLight);
+
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            dirLight.position.set(50, 100, 50);
+            dirLight.castShadow = true;
+            dirLight.shadow.mapSize.width = 2048;
+            dirLight.shadow.mapSize.height = 2048;
+            dirLight.shadow.camera.near = 0.5;
+            dirLight.shadow.camera.far = 500;
+            scene.add(dirLight);
+
+            // Ground
+            const groundGeo = new THREE.PlaneGeometry(300, 300);
+            const ground = new THREE.Mesh(groundGeo, matGround);
+            ground.rotation.x = -Math.PI / 2;
+            ground.receiveShadow = true;
+            scene.add(ground);
+
+            // Dirt Track
+            const pathGeo = new THREE.PlaneGeometry(300, 10);
+            const path = new THREE.Mesh(pathGeo, matSand);
+            path.rotation.x = -Math.PI / 2;
+            path.position.y = 0.02;
+            path.receiveShadow = true;
+            scene.add(path);
+
+            // --- Build Course ---
+            buildCourse();
+
+            // Initial Camera Position
+            updateCameraView(0);
+
+            // Listeners
+            window.addEventListener('resize', onWindowResize, false);
+            container.addEventListener('click', onCanvasClick);
+
+            // Hide loader
+            setTimeout(() => {
+                document.getElementById('loader').style.opacity = 0;
+                setTimeout(() => document.getElementById('loader').remove(), 500);
+            }, 1000);
+
+            animate();
+        }
+
+        function buildCourse() {
+            createRamp(-30);
+            createFigure8(-15);
+            createSpiderWeb(0);
+            createDoubleWall(20);
+            createHighWall(35);
+            createSlide(55);
+
+            // The Snake (Prop)
+            const snakeGeo = new THREE.CylinderGeometry(0.2, 0.2, 6, 12);
+            const snake = new THREE.Mesh(snakeGeo, matSnake);
+            snake.rotation.z = Math.PI / 2;
+            snake.position.set(-55, 0.3, 0);
+            snake.castShadow = true;
+            scene.add(snake);
+        }
+
+        // --- Accurate Obstacle Builders ---
+
+        // 1. Ramp & Jump (UPDATED: All White)
+        function createRamp(x) {
+            const group = new THREE.Group();
+
+            const height = 2.5; // ~8ft scale relative to scene
+            const length = 6;
+            const width = 5;
+            const numLanes = 4;
+
+            // 1. Top Horizontal Bar (Cylinder)
+            const topBarGeo = new THREE.CylinderGeometry(0.15, 0.15, width + 1);
+            const topBar = new THREE.Mesh(topBarGeo, matWhite); // Frame is white
+            topBar.rotation.x = Math.PI / 2; // Align along Z
+            topBar.position.set(0, height, 0);
+            topBar.castShadow = true;
+            group.add(topBar);
+
+            // 2. Vertical Supports for Top Bar (White)
+            const postGeo = new THREE.CylinderGeometry(0.15, 0.15, height);
+            const p1 = new THREE.Mesh(postGeo, matWhite);
+            p1.position.set(0, height / 2, -width / 2);
+            const p2 = new THREE.Mesh(postGeo, matWhite);
+            p2.position.set(0, height / 2, width / 2);
+            group.add(p1, p2);
+
+            // 3. Inclined Beams with Cleats (White)
+            const spacing = width / (numLanes - 1);
+            for (let i = 0; i < numLanes; i++) {
+                const z = -width / 2 + i * spacing;
+
+                // Beam
+                const angle = Math.atan(height / length);
+                const beamLen = Math.sqrt(height * height + length * length);
+
+                const beamGeo = new THREE.BoxGeometry(beamLen, 0.2, 0.3);
+                const beam = new THREE.Mesh(beamGeo, matWhite);
+
+                // Position
+                beam.position.set(-length / 2, height / 2, z);
+                beam.rotation.z = angle;
+                beam.castShadow = true;
+                group.add(beam);
+
+                // Mid-way support post for beam
+                const midH = height / 2;
+                const midPost = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, midH), matWhite);
+                midPost.position.set(-length / 2, midH / 2, z);
+                group.add(midPost);
+
+                // Cleats (Blocks) on top
+                const numCleats = 6;
+                for (let j = 0; j < numCleats; j++) {
+                    const t = j / (numCleats - 1);
+                    const cX = -beamLen / 2 + t * beamLen;
+
+                    const cleat = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.1, 0.35), matWhite);
+                    cleat.position.set(cX, 0.15, 0);
+                    beam.add(cleat);
+                }
+            }
+
+            // 4. Jump Line (Red strip on ground remains as a rule marker)
+            const jumpLine = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.05, width + 2), matRed);
+            jumpLine.position.set(0.5, 0.02, 0);
+            group.add(jumpLine);
+
+            // 5. Sand Pit
+            const pit = new THREE.Mesh(new THREE.BoxGeometry(5, 0.1, width + 2), matSand);
+            pit.position.set(3, 0.01, 0);
+            group.add(pit);
+
+            group.position.set(x, 0, 0);
+            addClickable(group, 1);
+            scene.add(group);
+        }
+
+        // 2. Figure of Eight
+        function createFigure8(x) {
+            const group = new THREE.Group();
+
+            const fenceWidth = 8; // Wide enough to span track
+            const numPosts = 5;
+            const postHeight = 3; // ~10ft
+            const postSpacing = fenceWidth / (numPosts - 1);
+
+            // 5 Red Vertical Posts (Distributed along Z axis)
+            for (let i = 0; i < numPosts; i++) {
+                const pZ = -fenceWidth / 2 + (i * postSpacing);
+                const postGeo = new THREE.CylinderGeometry(0.1, 0.1, postHeight);
+                const post = new THREE.Mesh(postGeo, matRed);
+                post.position.set(0, postHeight / 2, pZ); // x=0, vary z
+                post.castShadow = true;
+                group.add(post);
+            }
+
+            // 3 White Horizontal Rails (Along Z axis)
+            const numRails = 3;
+            for (let j = 1; j <= numRails; j++) {
+                const rY = (postHeight / (numRails + 1)) * j;
+                const railGeo = new THREE.CylinderGeometry(0.05, 0.05, fenceWidth);
+                const rail = new THREE.Mesh(railGeo, matWhite);
+                rail.rotation.x = Math.PI / 2; // Rotate to align with Z axis
+                rail.position.set(0, rY, 0);
+                rail.castShadow = true;
+                group.add(rail);
+            }
+
+            group.position.set(x, 0, 0);
+            addClickable(group, 2);
+            scene.add(group);
+        }
+
+        // 3. Spider Web
+        function createSpiderWeb(x) {
+            const group = new THREE.Group();
+
+            // Dimensions
+            const ridgeHeight = 3.5;
+            const spreadX = 4.0;
+            const widthZ = 5.0;
+
+            // Create 3 triangular supports
+            const numSupports = 3;
+            for (let i = 0; i < numSupports; i++) {
+                const z = -widthZ / 2 + (i * (widthZ / (numSupports - 1)));
+                createPole(group, 0, ridgeHeight, z, -spreadX / 2, 0, z, 0.1, matWhite);
+                createPole(group, 0, ridgeHeight, z, spreadX / 2, 0, z, 0.1, matWhite);
+                const joint = new THREE.Mesh(new THREE.SphereGeometry(0.15), matRed);
+                joint.position.set(0, ridgeHeight, z);
+                group.add(joint);
+            }
+
+            // Top Ridge Bar
+            createPole(group, 0, ridgeHeight, -widthZ / 2, 0, ridgeHeight, widthZ / 2, 0.08, matWhite);
+            createPole(group, -spreadX / 2, 0.1, -widthZ / 2, -spreadX / 2, 0.1, widthZ / 2, 0.08, matWhite);
+            createPole(group, spreadX / 2, 0.1, -widthZ / 2, spreadX / 2, 0.1, widthZ / 2, 0.08, matWhite);
+
+            // Netting
+            createNet(group,
+                new THREE.Vector3(0, ridgeHeight, -widthZ / 2), // Top Left
+                new THREE.Vector3(0, ridgeHeight, widthZ / 2),  // Top Right
+                new THREE.Vector3(-spreadX / 2, 0, widthZ / 2),   // Bottom Right
+                new THREE.Vector3(-spreadX / 2, 0, -widthZ / 2)   // Bottom Left
+            );
+
+            createNet(group,
+                new THREE.Vector3(0, ridgeHeight, -widthZ / 2),
+                new THREE.Vector3(0, ridgeHeight, widthZ / 2),
+                new THREE.Vector3(spreadX / 2, 0, widthZ / 2),
+                new THREE.Vector3(spreadX / 2, 0, -widthZ / 2)
+            );
+
+            group.position.set(x, 0, 0);
+            addClickable(group, 3);
+            scene.add(group);
+        }
+
+        // Helper to create a cylinder between two points
+        function createPole(group, x1, y1, z1, x2, y2, z2, radius, material) {
+            const p1 = new THREE.Vector3(x1, y1, z1);
+            const p2 = new THREE.Vector3(x2, y2, z2);
+            const height = p1.distanceTo(p2);
+            const geometry = new THREE.CylinderGeometry(radius, radius, height);
+            const mesh = new THREE.Mesh(geometry, material);
+
+            // Align
+            const mid = new THREE.Vector3().addVectors(p1, p2).multiplyScalar(0.5);
+            mesh.position.copy(mid);
+            mesh.lookAt(p2);
+            mesh.rotateX(Math.PI / 2);
+            mesh.castShadow = true;
+            group.add(mesh);
+        }
+
+        function createNet(group, tl, tr, br, bl) {
+            const rows = 6;
+            const cols = 6;
+            for (let i = 1; i < rows; i++) {
+                const t = i / rows;
+                const start = new THREE.Vector3().lerpVectors(tl, bl, t);
+                const end = new THREE.Vector3().lerpVectors(tr, br, t);
+                createPole(group, start.x, start.y, start.z, end.x, end.y, end.z, 0.02, matRope);
+            }
+            for (let i = 1; i < cols; i++) {
+                const t = i / cols;
+                const start = new THREE.Vector3().lerpVectors(tl, tr, t);
+                const end = new THREE.Vector3().lerpVectors(bl, br, t);
+                createPole(group, start.x, start.y, start.z, end.x, end.y, end.z, 0.02, matRope);
+            }
+        }
+
+        // 4. Double Wall (UPDATED: Equal Height, White Beam)
+        function createDoubleWall(x) {
+            const group = new THREE.Group();
+
+            // Wall Dimensions
+            const wallH = 2.5;   // ~8ft
+            const wallWidth = 4;
+            const wallThickness = 0.4;
+            const beamLength = 5;
+            const supportThickness = 0.2;
+
+            // 1. Wall 1 (White)
+            const w1Geo = new THREE.BoxGeometry(wallThickness, wallH, wallWidth);
+            const w1 = new THREE.Mesh(w1Geo, matWhite);
+            w1.position.set(-beamLength / 2 - wallThickness / 2, wallH / 2, 0);
+            w1.castShadow = true;
+            group.add(w1);
+
+            // Red Supports for Wall 1
+            const s1L = new THREE.Mesh(new THREE.BoxGeometry(supportThickness, wallH, supportThickness), matRed);
+            s1L.position.set(-beamLength / 2 - wallThickness / 2, wallH / 2, wallWidth / 2 - supportThickness / 2);
+            s1L.castShadow = true;
+            const s1R = new THREE.Mesh(new THREE.BoxGeometry(supportThickness, wallH, supportThickness), matRed);
+            s1R.position.set(-beamLength / 2 - wallThickness / 2, wallH / 2, -wallWidth / 2 + supportThickness / 2);
+            s1R.castShadow = true;
+            group.add(s1L, s1R);
+
+            // 2. Wall 2 (White)
+            const w2 = new THREE.Mesh(w1Geo, matWhite);
+            w2.position.set(beamLength / 2 + wallThickness / 2, wallH / 2, 0);
+            w2.castShadow = true;
+            group.add(w2);
+
+            // Red Supports for Wall 2
+            const s2L = new THREE.Mesh(new THREE.BoxGeometry(supportThickness, wallH, supportThickness), matRed);
+            s2L.position.set(beamLength / 2 + wallThickness / 2, wallH / 2, wallWidth / 2 - supportThickness / 2);
+            s2L.castShadow = true;
+            const s2R = new THREE.Mesh(new THREE.BoxGeometry(supportThickness, wallH, supportThickness), matRed);
+            s2R.position.set(beamLength / 2 + wallThickness / 2, wallH / 2, -wallWidth / 2 + supportThickness / 2);
+            s2R.castShadow = true;
+            group.add(s2L, s2R);
+
+            // 3. Connecting Balance Beam (White)
+            const beamGeo = new THREE.BoxGeometry(beamLength + wallThickness, 0.15, 0.3);
+            const beam = new THREE.Mesh(beamGeo, matWhite); // Changed to White
+            // Place it so its top surface is level with the walls' top
+            beam.position.set(0, wallH + 0.075, 0);
+            beam.castShadow = true;
+            group.add(beam);
+
+            group.position.set(x, 0, 0);
+            addClickable(group, 4);
+            scene.add(group);
+        }
+
+        // 5. High Wall
+        function createHighWall(x) {
+            const group = new THREE.Group();
+            const h = 2.8; // ~8.5ft
+
+            const wall = new THREE.Mesh(new THREE.BoxGeometry(0.5, h, 3), matWhite);
+            wall.position.set(0, h / 2, 0);
+            wall.castShadow = true;
+
+            const s1 = new THREE.Mesh(new THREE.BoxGeometry(0.7, h, 0.2), matRed);
+            s1.position.set(0, h / 2, 1.5);
+            const s2 = new THREE.Mesh(new THREE.BoxGeometry(0.7, h, 0.2), matRed);
+            s2.position.set(0, h / 2, -1.5);
+
+            group.add(wall, s1, s2);
+            group.position.set(x, 0, 0);
+            addClickable(group, 5);
+            scene.add(group);
+        }
+
+        // 6. Giant Slide (UPDATED: White Steps on Rods)
+        function createSlide(x) {
+            const group = new THREE.Group();
+
+            const height = 3.5; // ~10-11ft
+            const width = 4.5;
+            const slideLen = 6.0;
+            const climbLen = 4.0;
+            const topBarLen = width + 0.5;
+
+            const topBarGeo = new THREE.CylinderGeometry(0.15, 0.15, topBarLen);
+            const topBar = new THREE.Mesh(topBarGeo, matWhite);
+            topBar.rotation.x = Math.PI / 2;
+            topBar.position.set(0, height, 0);
+            topBar.castShadow = true;
+            group.add(topBar);
+
+            const markGeo = new THREE.CylinderGeometry(0.16, 0.16, 0.4);
+            const m1 = new THREE.Mesh(markGeo, matRed);
+            m1.rotation.x = Math.PI / 2;
+            m1.position.set(0, height, -width / 6);
+            group.add(m1);
+
+            const m2 = new THREE.Mesh(markGeo, matRed);
+            m2.rotation.x = Math.PI / 2;
+            m2.position.set(0, height, width / 6);
+            group.add(m2);
+
+            const postGeo = new THREE.CylinderGeometry(0.12, 0.12, height);
+            const p1 = new THREE.Mesh(postGeo, matWhite);
+            p1.position.set(0, height / 2, -width / 2);
+            group.add(p1);
+
+            const p2 = new THREE.Mesh(postGeo, matWhite);
+            p2.position.set(0, height / 2, width / 2);
+            group.add(p2);
+
+            const braceGeo = new THREE.CylinderGeometry(0.08, 0.08, height * 1.1);
+            const b1 = new THREE.Mesh(braceGeo, matWhite);
+            b1.position.set(1.5, height / 2, -width / 2);
+            b1.rotation.z = -0.4;
+            group.add(b1);
+
+            const b2 = new THREE.Mesh(braceGeo, matWhite);
+            b2.position.set(1.5, height / 2, width / 2);
+            b2.rotation.z = -0.4;
+            group.add(b2);
+
+            const numBeams = 3;
+            const beamSpacing = width / 2.5;
+
+            for (let i = 0; i < numBeams; i++) {
+                const zPos = (i - 1) * beamSpacing;
+
+                // --- Slide Side (+X) ---
+                const beamLength = Math.sqrt(slideLen * slideLen + height * height);
+                const angle = Math.atan2(height, slideLen);
+
+                const beamGeo = new THREE.BoxGeometry(beamLength + 0.5, 0.15, 0.3);
+                const beam = new THREE.Mesh(beamGeo, matWhite);
+                beam.position.set(slideLen / 2, height / 2, zPos);
+                beam.rotation.z = -angle;
+                beam.castShadow = true;
+                group.add(beam);
+
+                const midX = slideLen * 0.6;
+                const midY = height * 0.4;
+                const supH = midY;
+                const beamSup = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, supH), matWhite);
+                beamSup.position.set(midX, supH / 2, zPos);
+                group.add(beamSup);
+
+                // --- Climb Side (-X) ---
+                const climbBeamLen = Math.sqrt(climbLen * climbLen + height * height);
+                const climbAngle = Math.atan2(height, climbLen);
+
+                const rod = new THREE.Mesh(new THREE.BoxGeometry(climbBeamLen + 0.5, 0.12, 0.12), matWhite);
+                rod.position.set(-climbLen / 2, height / 2, zPos);
+                rod.rotation.z = climbAngle;
+                rod.castShadow = true;
+                group.add(rod);
+
+                // Add White Steps
+                const numSteps = 7;
+                for (let j = 0; j < numSteps; j++) {
+                    const t = (j / (numSteps - 1)) - 0.5;
+                    const stepPos = t * (climbBeamLen * 0.8);
+
+                    const step = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.05, 0.2), matWhite);
+                    step.position.set(stepPos, 0.08, 0);
+                    rod.add(step);
+                }
+            }
+
+            group.position.set(x, 0, 0);
+            addClickable(group, 6);
+            scene.add(group);
+        }
+
+        function addClickable(group, id) {
+            const box = new THREE.Mesh(new THREE.BoxGeometry(8, 6, 8), new THREE.MeshBasicMaterial({ visible: false }));
+            box.position.y = 3;
+            box.userData = { id: id };
+            group.add(box);
+            clickableObjects.push(box);
+        }
+
+        // --- Navigation Logic ---
+
+        function navigate(dir) {
+            const newStep = currentStep + dir;
+            if (newStep >= 0 && newStep < obstacles.length) {
+                currentStep = newStep;
+                updateUI();
+                moveCameraToStep(currentStep);
+            }
+        }
+
+        function updateUI() {
+            const data = obstacles[currentStep];
+            document.getElementById('obs-title').innerText = data.name;
+            document.getElementById('obs-subtitle').innerText = data.subtitle;
+            document.getElementById('step-indicator').innerText = `${currentStep} / 6`;
+
+            document.getElementById('btn-prev').disabled = currentStep === 0;
+            document.getElementById('btn-next').innerHTML = currentStep === 6 ? "Finish" : "Next &#8594;";
+            if (currentStep === 6) document.getElementById('btn-next').disabled = true;
+            else document.getElementById('btn-next').disabled = false;
+        }
+
+        function moveCameraToStep(idx) {
+            const target = obstacles[idx];
+            new TWEEN.Tween(camera.position)
+                .to(target.pos, 1500)
+                .easing(TWEEN.Easing.Cubic.InOut)
+                .start();
+
+            new TWEEN.Tween(controls.target)
+                .to(target.lookAt, 1500)
+                .easing(TWEEN.Easing.Cubic.InOut)
+                .start();
+        }
+
+        function updateCameraView(idx) {
+            const target = obstacles[idx];
+            camera.position.set(target.pos.x, target.pos.y, target.pos.z);
+            controls.target.set(target.lookAt.x, target.lookAt.y, target.lookAt.z);
+            controls.update();
+            updateUI();
+        }
+
+        // --- Interaction ---
+
+        function onCanvasClick(event) {
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(clickableObjects);
+
+            if (intersects.length > 0) {
+                const id = intersects[0].object.userData.id;
+                if (id === currentStep) {
+                    showInfo();
+                } else {
+                    currentStep = id;
+                    updateUI();
+                    moveCameraToStep(id);
+                }
+            }
+        }
+
+        function showInfo() {
+            const data = obstacles[currentStep];
+            document.getElementById('m-title').innerText = data.name;
+
+            const specsDiv = document.getElementById('m-specs');
+            specsDiv.innerHTML = data.specs.map(s => `<span class="spec-tag">${s}</span>`).join('');
+
+            document.getElementById('m-clear').innerText = data.desc;
+            document.getElementById('m-tips').innerText = data.tips;
+
+            document.getElementById('modal').style.display = 'flex';
+        }
+
+        function hideInfo() {
+            document.getElementById('modal').style.display = 'none';
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate(time) {
+            requestAnimationFrame(animate);
+            TWEEN.update(time);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        init();
+
+    </script>
+</body>
+
+</html>

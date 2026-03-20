@@ -1,0 +1,164 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+#  Usually these files are written by a python script run before PyInstaller
+#  builds the exe, so they can be ignored.
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-check.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# Translations
+*.mo
+*.pot
+
+# Django stuff:
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+
+# Flask stuff:
+instance/
+.webassets-cache
+
+# Scrapy stuff:
+.scrapy
+
+# Sphinx documentation
+docs/_build/
+
+# PyBuilder
+.pybuilder/
+target/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+iptest_log.txt
+
+# pyenv
+#   For a library or app, you might want to include .python-version in the toolchain
+# .python-version
+
+# pipenv
+#   According to pypa/pipenv#1116, pipenv-created virtualenvs are placed in
+#   ~/.local/share/virtualenvs by default. If you're using "PIPENV_VENV_IN_PROJECT=1"
+#   you might need to include .venv in .gitignore
+#.venv
+
+# Poetry
+#   https://python-poetry.org/docs/configuration/#virtualenvscreate
+#   Usually, virtualenvs are created outside of the project, but you can configure it otherwise.
+# .venv
+
+# pdm
+#   https://pdm.fming.dev/latest/usage/config/#virtualenvs-create
+# .pdm-plugins/
+
+# PEP 582; run without virtualenv
+__pypackages__/
+
+# Celery stuff
+celerybeat-schedule
+celerybeat.pid
+
+# SageMath libraries
+*.sage.py
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Rope project settings
+.ropeproject
+
+# mkdocs documentation
+/site
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# pytype static type analyzer
+.pytype/
+
+# Cython debug symbols
+cython_debug/
+
+# Node modules / frontend
+node_modules/
+/ssb-practice-platform/node_modules/
+/ssb-practice-platform/dist/
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Vite / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Local application data / uploads
+/Backend/uploads/

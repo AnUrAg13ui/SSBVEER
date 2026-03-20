@@ -1,0 +1,103 @@
+=== main.py ===
+NAMES: ('fastapi', 'FastAPI', 'fastapi.middleware.cors', 'CORSMiddleware', 'app.routers', 'tests', 'interview', 'auth', 'dashboard', 'psych', 'gto', 'scoring', 'board', 'app.database', 'engine', 'Base', 'app', 'models', '_models', 'app.utils.logger', 'log', 'app.config', 'get_settings', '_settings', 'metadata', 'create_all', 'info', 'origins', 'add_middleware', 'get', 'read_root', 'health', 'api_prefix', 'API', 'include_router', 'router')
+VARNAMES: ()
+STR: 'db.tables_created'
+STR: 'SSB Prep Platform'
+STR: 'AI-powered SSB Preparation & Evaluation Platform — OIR, PPDT, TAT, WAT, SRT, SDT, GD, Lecturette, Mock Interview, OPI scoring, and the full Multi-Agent Virtual SSB Board powered by LangGraph.'
+STR: '3.0.0'
+STR: 'health'
+FUNC: read_root (line 53)
+  NAMES: ()
+  VARNAMES: ()
+  STR: 'status'
+  STR: 'message'
+  STR: 'SSB Prep Platform API v3.0'
+  STR: 'modules'
+STR: '/health'
+FUNC: health (line 66)
+  NAMES: ()
+  VARNAMES: ()
+  STR: 'status'
+
+=== database.py ===
+NAMES: ('os', 'sqlalchemy', 'create_engine', 'sqlalchemy.ext.declarative', 'declarative_base', 'sqlalchemy.orm', 'sessionmaker', 'getenv', 'SQLALCHEMY_DATABASE_URL', 'startswith', 'connect_args', 'engine', 'SessionLocal', 'Base', 'get_db')
+VARNAMES: ()
+STR: 'DATABASE_URL'
+STR: 'sqlite:///./sql_app.db'
+STR: 'sqlite'
+STR: 'check_same_thread'
+FUNC: get_db (line 19)
+  NAMES: ('SessionLocal', 'close')
+  VARNAMES: ('db',)
+
+=== config.py ===
+NAMES: ('__doc__', 'functools', 'lru_cache', 'pydantic_settings', 'BaseSettings', 'pydantic', 'Field', 'Settings', 'get_settings')
+VARNAMES: ()
+STR: '\nCentralised application configuration loaded from environment variables.\nAll scoring weights and thresholds live here — no magic numbers elsewhere.\n'
+FUNC: Settings (line 10)
+  NAMES: ('__name__', '__module__', '__qualname__', '__firstlineno__', 'app_name', 'debug', 'api_prefix', 'Field', 'database_url', 'redis_url', 'redis_session_ttl', 'redis_result_ttl', 'secret_key', 'algorithm', 'access_token_expire_minutes', 'gemini_api_key', 'gemini_model', 'gemini_temperature', 'gemini_max_retries', 'gemini_timeout_sec', 'weight_psychologist', 'weight_gto', 'weight_io', 'weight_cognitive', 'stage1_pass_threshold', 'recommend_threshold', 'borderline_threshold', 'psych_w_emotional', 'psych_w_initiative', 'psych_w_responsibility', 'psych_w_stress', 'gto_w_leadership', 'gto_w_team', 'gto_w_clarity', 'gto_w_social', 'io_w_communication', 'io_w_confidence', 'io_w_integrity', 'io_w_self_awareness', 'Config', '__annotate_func__', '__static_attributes__', '__classdictcell__')
+  VARNAMES: ()
+  STR: 'Settings'
+  STR: 'SSB Multi-Agent Board'
+  STR: '/api'
+  STR: 'sqlite:///./sql_app.db'
+  STR: 'DATABASE_URL'
+  STR: 'redis://localhost:6379/0'
+  STR: 'REDIS_URL'
+  STR: 'changeme-in-production-use-32-char-secret'
+  STR: 'SECRET_KEY'
+  STR: 'HS256'
+  STR: 'GEMINI_API_KEY'
+  STR: 'gemini-2.0-flash'
+  FUNC: Config (line 67)
+    NAMES: ('__name__', '__module__', '__qualname__', '__firstlineno__', 'env_file', 'populate_by_name', 'extra', '__static_attributes__')
+    VARNAMES: ()
+    STR: 'Settings.Config'
+    STR: '.env'
+    STR: 'ignore'
+  STR: 'Config'
+  FUNC: __annotate__ (line 10)
+    NAMES: ('str', 'bool', 'int', 'float')
+    VARNAMES: ('format',)
+    STR: 'app_name'
+    STR: 'debug'
+    STR: 'api_prefix'
+    STR: 'database_url'
+    STR: 'redis_url'
+    STR: 'redis_session_ttl'
+    STR: 'redis_result_ttl'
+    STR: 'secret_key'
+    STR: 'algorithm'
+    STR: 'access_token_expire_minutes'
+    STR: 'gemini_api_key'
+    STR: 'gemini_model'
+    STR: 'gemini_temperature'
+    STR: 'gemini_max_retries'
+    STR: 'gemini_timeout_sec'
+    STR: 'weight_psychologist'
+    STR: 'weight_gto'
+    STR: 'weight_io'
+    STR: 'weight_cognitive'
+    STR: 'stage1_pass_threshold'
+    STR: 'recommend_threshold'
+    STR: 'borderline_threshold'
+    STR: 'psych_w_emotional'
+    STR: 'psych_w_initiative'
+    STR: 'psych_w_responsibility'
+    STR: 'psych_w_stress'
+    STR: 'gto_w_leadership'
+    STR: 'gto_w_team'
+    STR: 'gto_w_clarity'
+    STR: 'gto_w_social'
+    STR: 'io_w_communication'
+    STR: 'io_w_confidence'
+    STR: 'io_w_integrity'
+    STR: 'io_w_self_awareness'
+STR: 'Settings'
+FUNC: __annotate__ (line 74)
+  NAMES: ('Settings',)
+  VARNAMES: ('format',)
+  STR: 'return'
+FUNC: get_settings (line 73)
+  NAMES: ('Settings',)
+  VARNAMES: ()
