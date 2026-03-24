@@ -18,7 +18,8 @@ const Login = () => {
     const location = useLocation();
     const toast = useToast();
     const from = location.state?.from || '/dashboard';
-    const sessionExpired = new URLSearchParams(location.search).get('expired') === '1';
+    const sessionExpired  = new URLSearchParams(location.search).get('expired')  === '1';
+    const sessionInactive = new URLSearchParams(location.search).get('inactive') === '1';
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -105,7 +106,13 @@ const Login = () => {
                     </div>
 
                     {/* Alert banners */}
-                    {sessionExpired && (
+                    {sessionInactive && (
+                        <div className="mb-6 p-4 rounded-xl flex items-center gap-3 text-sm font-bold" style={{ background: 'rgba(245,166,35,0.08)', border: '1px solid rgba(245,166,35,0.25)', color: '#f5a623' }}>
+                            <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                            You were logged out due to inactivity. Please sign in again.
+                        </div>
+                    )}
+                    {!sessionInactive && sessionExpired && (
                         <div className="mb-6 p-4 rounded-xl flex items-center gap-3 text-sm font-bold" style={{ background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.2)', color: '#eab308' }}>
                             <AlertCircle className="w-5 h-5 flex-shrink-0" />
                             Session expired. Please sign in again.

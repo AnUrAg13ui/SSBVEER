@@ -1,7 +1,12 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, JSON
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, JSON, UniqueConstraint
 from sqlalchemy.orm import relationship
-from datetime import datetime
+from datetime import datetime, timezone
 from app.database import Base
+
+
+def _utcnow():
+    """Timezone-aware UTC now — replaces deprecated datetime.utcnow()."""
+    return datetime.now(timezone.utc)
 
 
 # ─── User ────────────────────────────────────────────────────────────────────
@@ -16,12 +21,15 @@ class User(Base):
     google_id = Column(String(255), unique=True, index=True, nullable=True)
     picture = Column(String(500), nullable=True)
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    is_admin = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=_utcnow)
 
     # Relationships
     test_results = relationship("UserTest", back_populates="user")
     interviews = relationship("MockInterview", back_populates="user")
     piq_form = relationship("PIQForm", back_populates="user", uselist=False)
+    forum_posts = relationship("ForumPost", back_populates="author")
+    forum_likes = relationship("ForumLike", back_populates="user")
 
 
 # ─── Test ────────────────────────────────────────────────────────────────────
@@ -59,7 +67,7 @@ class UserTest(Base):
     test_id = Column(Integer, ForeignKey("tests.id"), nullable=False)
     score = Column(Integer, default=0)
     time_taken = Column(Integer, default=0)           # seconds
-    completed_at = Column(DateTime, default=datetime.utcnow)
+    completed_at = Column(DateTime, default=_utcnow)
 
     user = relationship("User", back_populates="test_results")
     test = relationship("Test")
@@ -75,7 +83,7 @@ class MockInterview(Base):
     feedback = Column(Text, default="")
     confidence_score = Column(Integer, default=0)
     clarity_score = Column(Integer, default=0)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_utcnow)
 
     user = relationship("User", back_populates="interviews")
 
@@ -142,7 +150,33 @@ class PIQForm(Base):
     why_join_army = Column(Text, nullable=True)
     self_description = Column(Text, nullable=True)
 
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=_utcnow)
+    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
 
     user = relationship("User", back_populates="piq_form")
+
+
+# ─── Forum ───────────────────────────────────────────────────────────────────
+class ForumPost(Base):
+    __tablename__ = "forum_posts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    text = Column(Text, nullable=False)
+    category = Column(String(100), default="General", nullable=False)
+    created_at = Column(DateTime, default=_utcnow)
+
+    author = relationship("User", back_populates="forum_posts")
+    likes = relationship("ForumLike", back_populates="post", cascade="all, delete-orphan")
+
+
+class ForumLike(Base):
+    __tablename__ = "forum_likes"
+    __table_args__ = (UniqueConstraint("user_id", "post_id", name="uq_user_post_like"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    post_id = Column(Integer, ForeignKey("forum_posts.id"), nullable=False)
+
+    user = relationship("User", back_populates="forum_likes")
+    post = relationship("ForumPost", back_populates="likes")

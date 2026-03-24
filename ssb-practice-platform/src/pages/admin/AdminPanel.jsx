@@ -12,11 +12,16 @@ const API = 'http://localhost:8000/api';
 // ─── Hook: admin auth ─────────────────────────────────────────────────────────
 function useAdminAuth() {
     const navigate = useNavigate();
-    const auth = JSON.parse(sessionStorage.getItem('admin_auth') || 'null');
+    const token = sessionStorage.getItem('admin_token');
     useEffect(() => {
-        if (!auth) navigate('/admin');
+        if (!token) navigate('/admin');
     }, []);
-    return auth || { username: '', password: '' };
+    return token || '';
+}
+
+function adminHeaders() {
+    const token = sessionStorage.getItem('admin_token') || '';
+    return { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
 }
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
@@ -97,7 +102,7 @@ const GoldBtn = ({ onClick, children, disabled, color = '#f5a623', outline = fal
 // ──────────────────────────────────────────────────────────────────────────────
 // ─── GPE Section ─────────────────────────────────────────────────────────────
 // ──────────────────────────────────────────────────────────────────────────────
-const GPESection = ({ auth, toast }) => {
+const GPESection = ({ toast }) => {
     const [tasks, setTasks] = useState([]);
     const [loading, setLoading] = useState(false);
     const [form, setForm] = useState({ title: '', description: '', situation: '', resources: '', problems: '', model_answer: '' });
@@ -114,7 +119,6 @@ const GPESection = ({ auth, toast }) => {
         if (!form.title || !form.situation) return toast('Title and situation are required', 'error');
         setLoading(true);
         const body = {
-            ...auth,
             title: form.title,
             description: form.description,
             situation: form.situation,
@@ -122,7 +126,7 @@ const GPESection = ({ auth, toast }) => {
             problems: form.problems.split('\n').filter(Boolean).map((p, i) => ({ id: `P${i+1}`, label: p.trim() })),
             model_answer: form.model_answer,
         };
-        const r = await fetch(`${API}/admin/gpe`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        const r = await fetch(`${API}/admin/gpe`, { method: 'POST', headers: adminHeaders(), body: JSON.stringify(body) });
         if (r.ok) {
             toast('GPE Task created!', 'success');
             setForm({ title: '', description: '', situation: '', resources: '', problems: '', model_answer: '' });
@@ -134,7 +138,7 @@ const GPESection = ({ auth, toast }) => {
 
     const del = async (id) => {
         if (!confirm('Delete this GPE task?')) return;
-        const r = await fetch(`${API}/admin/gpe/${id}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(auth) });
+        const r = await fetch(`${API}/admin/gpe/${id}`, { method: 'DELETE', headers: adminHeaders() });
         if (r.ok) { toast('Deleted', 'success'); load(); }
         else toast('Delete failed', 'error');
     };
@@ -189,7 +193,7 @@ const GPESection = ({ auth, toast }) => {
 // ──────────────────────────────────────────────────────────────────────────────
 // ─── PPDT Section ─────────────────────────────────────────────────────────────
 // ──────────────────────────────────────────────────────────────────────────────
-const PPDTSection = ({ auth, toast }) => {
+const PPDTSection = ({ toast }) => {
     const [images, setImages] = useState([]);
     const [uploading, setUploading] = useState(false);
     const [preview, setPreview] = useState(null);
@@ -207,9 +211,8 @@ const PPDTSection = ({ auth, toast }) => {
         setUploading(true);
         const fd = new FormData();
         fd.append('file', file);
-        fd.append('username', auth.username);
-        fd.append('password', auth.password);
-        const r = await fetch(`${API}/admin/ppdt/upload`, { method: 'POST', body: fd });
+        const token = sessionStorage.getItem('admin_token') || '';
+        const r = await fetch(`${API}/admin/ppdt/upload`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` }, body: fd });
         if (r.ok) { toast('Image uploaded!', 'success'); load(); }
         else toast('Upload failed', 'error');
         setUploading(false);
@@ -218,7 +221,7 @@ const PPDTSection = ({ auth, toast }) => {
 
     const del = async (filename) => {
         if (!confirm(`Delete ${filename}?`)) return;
-        const r = await fetch(`${API}/admin/ppdt/${filename}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(auth) });
+        const r = await fetch(`${API}/admin/ppdt/${filename}`, { method: 'DELETE', headers: adminHeaders() });
         if (r.ok) { toast('Deleted', 'success'); load(); }
         else toast('Delete failed', 'error');
     };
@@ -281,7 +284,7 @@ const PPDTSection = ({ auth, toast }) => {
 // ──────────────────────────────────────────────────────────────────────────────
 // ─── WAT / SRT Bundles Section ────────────────────────────────────────────────
 // ──────────────────────────────────────────────────────────────────────────────
-const BundleSection = ({ auth, toast, category, label, itemLabel, placeholder }) => {
+const BundleSection = ({ toast, category, label, itemLabel, placeholder }) => {
     const [bundles, setBundles] = useState([]);
     const [adding, setAdding] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -298,8 +301,8 @@ const BundleSection = ({ auth, toast, category, label, itemLabel, placeholder })
         if (!form.title || items.length === 0) return toast('Title and at least one item required', 'error');
         setLoading(true);
         const r = await fetch(`${API}/admin/bundles`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ...auth, category, title: form.title, description: form.description, items })
+            method: 'POST', headers: adminHeaders(),
+            body: JSON.stringify({ category, title: form.title, description: form.description, items })
         });
         if (r.ok) { toast(`${label} bundle added!`, 'success'); setForm({ title: '', description: '', items: '' }); setAdding(false); load(); }
         else toast('Failed', 'error');
@@ -308,7 +311,7 @@ const BundleSection = ({ auth, toast, category, label, itemLabel, placeholder })
 
     const del = async (id) => {
         if (!confirm('Delete this bundle?')) return;
-        const r = await fetch(`${API}/admin/bundles/${id}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(auth) });
+        const r = await fetch(`${API}/admin/bundles/${id}`, { method: 'DELETE', headers: adminHeaders() });
         if (r.ok) { toast('Deleted', 'success'); load(); }
     };
 
@@ -370,7 +373,7 @@ const BundleSection = ({ auth, toast, category, label, itemLabel, placeholder })
 // ──────────────────────────────────────────────────────────────────────────────
 // ─── Command Task Models Section ──────────────────────────────────────────────
 // ──────────────────────────────────────────────────────────────────────────────
-const CommandSection = ({ auth, toast }) => {
+const CommandSection = ({ toast }) => {
     const [models, setModels] = useState([]);
     const [adding, setAdding] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -399,7 +402,7 @@ const CommandSection = ({ auth, toast }) => {
             optimalPlan: form.optimalPlan,
             sketchfabId: form.sketchfabId,
         };
-        const r = await fetch(`${API}/admin/command-models`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        const r = await fetch(`${API}/admin/command-models`, { method: 'POST', headers: adminHeaders(), body: JSON.stringify(body) });
         if (r.ok) { toast('Model added!', 'success'); setForm({ name: '', difficulty: 'Medium', diffColor: '#f5a623', description: '', rules: '', resources: '', optimalPlan: '', sketchfabId: '' }); setAdding(false); load(); }
         else toast('Failed', 'error');
         setLoading(false);
@@ -407,7 +410,7 @@ const CommandSection = ({ auth, toast }) => {
 
     const del = async (id) => {
         if (!confirm('Delete this model?')) return;
-        const r = await fetch(`${API}/admin/command-models/${id}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(auth) });
+        const r = await fetch(`${API}/admin/command-models/${id}`, { method: 'DELETE', headers: adminHeaders() });
         if (r.ok) { toast('Deleted', 'success'); load(); }
     };
 
@@ -489,7 +492,7 @@ const AdminPanel = () => {
     };
 
     const logout = () => {
-        sessionStorage.removeItem('admin_auth');
+        sessionStorage.removeItem('admin_token');
         navigate('/admin');
     };
 
@@ -508,7 +511,7 @@ const AdminPanel = () => {
                     </div>
                     <div>
                         <p className="text-sm font-black text-white" style={{ fontFamily: 'Cinzel, serif' }}>Admin Panel</p>
-                        <p className="text-xs" style={{ color: '#4a4a4a' }}>Logged in as {auth.username}</p>
+        <p className="text-xs" style={{ color: '#4a4a4a' }}>Logged in as {auth ? 'Administrator' : '...'}</p>
                     </div>
                 </div>
                 <button onClick={logout}
@@ -549,29 +552,28 @@ const AdminPanel = () => {
                     <h2 className="text-2xl font-black text-white mt-1" style={{ fontFamily: 'Cinzel, serif' }}>Platform Content</h2>
                 </div>
 
-                {/* The 4 sections */}
                 <Section title="GPE Tasks" icon={Map} color="#f5a623" defaultOpen>
-                    <GPESection auth={auth} toast={showToast} />
+                    <GPESection toast={showToast} />
                 </Section>
 
                 <Section title="PPDT Images" icon={Image} color="#22c55e">
-                    <PPDTSection auth={auth} toast={showToast} />
+                    <PPDTSection toast={showToast} />
                 </Section>
 
                 <Section title="WAT Word Bundles" icon={FileText} color="#8b5cf6">
                     <BundleSection
-                        auth={auth} toast={showToast} category="WAT" label="WAT" itemLabel="Words"
+                        toast={showToast} category="WAT" label="WAT" itemLabel="Words"
                         placeholder={"COURAGE\nFAILURE\nLEADER\nJUSTICE\nHONESTY\nSACRIFICE"} />
                 </Section>
 
                 <Section title="SRT Situation Bundles" icon={BookOpen} color="#06b6d4">
                     <BundleSection
-                        auth={auth} toast={showToast} category="SRT" label="SRT" itemLabel="Situations"
+                        toast={showToast} category="SRT" label="SRT" itemLabel="Situations"
                         placeholder={"He was on his way to the exam hall and saw an accident using his bike.\nHe was appointed as the captain of a losing team.\nHe saw his friend cheating in the exam."} />
                 </Section>
 
                 <Section title="Command Task Models" icon={Flag} color="#ef4444">
-                    <CommandSection auth={auth} toast={showToast} />
+                    <CommandSection toast={showToast} />
                 </Section>
             </div>
 

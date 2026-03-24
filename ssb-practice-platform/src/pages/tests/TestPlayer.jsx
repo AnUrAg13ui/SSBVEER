@@ -821,19 +821,19 @@ const TestPlayer = () => {
                                 initial={{ opacity: 0, x: 20 }}
                                 animate={{ opacity: 1, x: 0 }}
                                 exit={{ opacity: 0, x: -20 }}
-                                className="rounded-3xl p-8 md:p-10 flex-1 flex flex-col"
+                                className="rounded-3xl p-6 md:p-8 flex flex-col"
                                 style={{ background: '#0e0e0e', border: '1px solid rgba(245,166,35,0.12)' }}
                             >
-                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest mb-6 w-fit" style={{ background: `${catColor}15`, color: catColor, border: `1px solid ${catColor}25` }}>
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest mb-4 w-fit" style={{ background: `${catColor}15`, color: catColor, border: `1px solid ${catColor}25` }}>
                                     <Target className="w-3 h-3" /> {category}
                                 </span>
-                                <h3 className="text-2xl md:text-3xl font-black text-white mb-10 leading-relaxed flex-1">{q.text}</h3>
-                                <div className="grid gap-3">
+                                <h3 className="text-lg md:text-xl font-black text-white mb-5 leading-snug">{q.text}</h3>
+                                <div className="grid gap-2">
                                     {(Array.isArray(q.options) ? q.options : JSON.parse(q.options || '[]')).map((opt, i) => (
                                         <button
                                             key={i}
                                             onClick={() => handleResponse(opt)}
-                                            className="p-5 rounded-2xl text-left font-bold text-base flex items-center justify-between transition-all"
+                                            className="p-4 rounded-xl text-left font-bold text-sm flex items-center justify-between transition-all"
                                             style={responses[q.id] === opt ? {
                                                 background: 'rgba(245,166,35,0.1)',
                                                 border: `1.5px solid ${catColor}`,
@@ -845,7 +845,7 @@ const TestPlayer = () => {
                                             }}
                                         >
                                             <span>{opt}</span>
-                                            {responses[q.id] === opt && <CheckCircle className="w-5 h-5" style={{ color: catColor }} />}
+                                            {responses[q.id] === opt && <CheckCircle className="w-5 h-5 flex-shrink-0" style={{ color: catColor }} />}
                                         </button>
                                     ))}
                                 </div>

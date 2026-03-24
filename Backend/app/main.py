@@ -1,25 +1,59 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from app.routers import tests, interview, auth, dashboard, chatbot, mobile_session, piq, admin, lecturette
-from app.database import engine, Base
+from contextlib import asynccontextmanager
+from app.routers import tests, interview, auth, dashboard, chatbot, mobile_session, piq, admin, lecturette, forum
+from app.database import engine, Base, SessionLocal
 from app import models
+from app.config import get_settings
 from pathlib import Path
+import logging
 
-# Create database tables (auto-creates on first boot)
-models.Base.metadata.create_all(bind=engine)
+logger = logging.getLogger("ssb_platform")
+settings = get_settings()
+
+# ── Startup validation ────────────────────────────────────────────────────────────────
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # ── Startup ────────────────────────────────────────────────────────────
+    models.Base.metadata.create_all(bind=engine)
+
+    if settings.is_weak_secret:
+        logger.critical(
+            "\n"
+            "╔══════════════════════════════════════════════════════════╗\n"
+            "║  ⚠  SECURITY WARNING: SECRET_KEY is using the weak default.  ║\n"
+            "║     Set a strong SECRET_KEY in your .env file.              ║\n"
+            "╚══════════════════════════════════════════════════════════╝"
+        )
+
+    if not settings.admin_password:
+        logger.critical("SECURITY WARNING: ADMIN_PASSWORD is not set in .env.")
+
+    # Seed default tests if DB is empty (Issue 12 — moved out of request handler)
+    db = SessionLocal()
+    try:
+        tests.seed_tests(db)
+    finally:
+        db.close()
+
+    yield
+    # ── Shutdown (nothing to clean up yet) ──────────────────────────────────────
 
 app = FastAPI(
     title="SSB Prep Platform",
     description="API for SSB Preparation functionalities: OIR, PPDT, Psych Tests, Mock Interview.",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
-# CORS Middleware — allow all origins so mobile phones on the same LAN can access
+# CORS Middleware — origins locked to ALLOWED_ORIGINS in .env
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,   # must be False when allow_origins=["*"]
+    allow_origins=settings.allowed_origins_list,
+    allow_credentials=False,   # must be False when allow_origins contains "*"
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -45,4 +79,4 @@ app.include_router(mobile_session.router, prefix="/api")
 app.include_router(piq.router, prefix="/api")
 app.include_router(admin.router, prefix="/api")
 app.include_router(lecturette.router, prefix="/api")
-
+app.include_router(forum.router, prefix="/api")

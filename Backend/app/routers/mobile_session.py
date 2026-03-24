@@ -5,15 +5,19 @@ Implements real-time QR-code image handoff for PPDT / WAT / SRT tests.
 
 Flow:
   1. Frontend generates a session_id (uuid4) when the test starts.
-  2. Laptop opens WebSocket at  ws://host:8000/ws/{session_id}
-  3. Phone navigates to         http://host:5173/mobile/{session_id}
-  4. Phone uploads image via    POST /api/session/upload/{session_id}
-  5. Backend stores the file and broadcasts the image URL over WS.
-  6. Laptop receives the event and displays the image without refresh.
+  2. Laptop calls POST /session/register/{session_id} (requires user JWT) to get an upload_token.
+  3. Laptop opens WebSocket at  ws://host:8000/ws/{session_id}
+  4. Laptop encodes  http://host:5173/mobile/{session_id}?token=<upload_token>  into QR code.
+  5. Phone navigates to the QR URL and uploads via POST /session/upload/{session_id}?upload_token=<token>
+  6. Backend validates the token, saves the file, and broadcasts the image URL over WS.
+  7. Laptop receives the event and displays the image without refresh.
 """
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, UploadFile, File, HTTPException
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, UploadFile, File, HTTPException, Depends, Query
+from fastapi.security import OAuth2PasswordBearer
 from pathlib import Path
+from app.routers.auth import get_current_user
+from app import models
 import uuid
 import shutil
 import json
@@ -21,7 +25,7 @@ import json
 router = APIRouter(prefix="/session", tags=["mobile_session"])
 
 # ─── In-memory session store ──────────────────────────────────────────────────
-# { session_id: { "image_url": str | None, "sockets": list[WebSocket] } }
+# { session_id: { "image_url": str | None, "sockets": list[WebSocket], "upload_token": str | None } }
 _sessions: dict[str, dict] = {}
 
 UPLOADS_DIR = Path(__file__).resolve().parent.parent.parent / "uploads"
@@ -30,26 +34,53 @@ UPLOADS_DIR.mkdir(exist_ok=True)
 
 def _get_or_create(session_id: str) -> dict:
     if session_id not in _sessions:
-        _sessions[session_id] = {"image_url": None, "sockets": []}
+        _sessions[session_id] = {"image_url": None, "sockets": [], "upload_token": None}
     return _sessions[session_id]
+
+
+# ─── REST: register session — laptop calls this, gets upload token ─────────────
+@router.post("/register/{session_id}")
+def register_session(
+    session_id: str,
+    current_user: models.User = Depends(get_current_user),
+):
+    """
+    Called by the laptop frontend after generating a session_id.
+    Returns a short-lived upload_token that the mobile page must present on upload.
+    Requires a valid user JWT (ensures only authenticated users can create sessions).
+    """
+    session = _get_or_create(session_id)
+    upload_token = str(uuid.uuid4())
+    session["upload_token"] = upload_token
+    return {"session_id": session_id, "upload_token": upload_token}
 
 
 # ─── REST: verify session exists (mobile page polls this on load) ──────────────
 @router.get("/verify/{session_id}")
 def verify_session(session_id: str):
     """Mobile page calls this to confirm the session is valid before showing upload UI."""
-    _get_or_create(session_id)  # auto-create so mobile page always succeeds
+    if session_id not in _sessions:
+        raise HTTPException(status_code=404, detail="Session not found or expired")
     return {"session_id": session_id, "status": "active"}
 
 
 # ─── REST: upload image from mobile ───────────────────────────────────────────
 @router.post("/upload/{session_id}")
-async def upload_image(session_id: str, file: UploadFile = File(...)):
+async def upload_image(
+    session_id: str,
+    upload_token: str = Query(..., description="Upload token from QR code URL"),
+    file: UploadFile = File(...),
+):
     """
-    Receives the image, saves it, then pushes the image URL to all
-    WebSocket subscribers watching this session.
+    Receives the image from the mobile device.
+    Requires upload_token query param matching the one issued at /register.
     """
-    session = _get_or_create(session_id)
+    if session_id not in _sessions:
+        raise HTTPException(status_code=401, detail="Invalid or expired session")
+
+    session = _sessions[session_id]
+    if not session.get("upload_token") or session["upload_token"] != upload_token:
+        raise HTTPException(status_code=401, detail="Invalid upload token")
 
     # Save the file with a unique name
     ext = Path(file.filename).suffix if file.filename else ".jpg"
@@ -71,7 +102,6 @@ async def upload_image(session_id: str, file: UploadFile = File(...)):
         except Exception:
             dead_sockets.append(ws)
 
-    # Clean up dead sockets
     for ws in dead_sockets:
         session["sockets"].remove(ws)
 
@@ -92,7 +122,6 @@ async def websocket_session(websocket: WebSocket, session_id: str):
 
     try:
         while True:
-            # Keep the connection alive; we don't expect messages from the laptop
             await websocket.receive_text()
     except WebSocketDisconnect:
         if websocket in session["sockets"]:

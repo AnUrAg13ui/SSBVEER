@@ -3,8 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Shield, Eye, EyeOff, Lock, User } from 'lucide-react';
 
-const ADMIN_USER = 'anuragadmin133';
-const ADMIN_PASS = '@AnuragAdmin';
+const API = 'http://localhost:8000/api';
 
 const AdminLogin = () => {
     const [username, setUsername] = useState('');
@@ -18,14 +17,24 @@ const AdminLogin = () => {
         e.preventDefault();
         setError('');
         setLoading(true);
-        await new Promise(r => setTimeout(r, 500));
-        if (username === ADMIN_USER && password === ADMIN_PASS) {
-            sessionStorage.setItem('admin_auth', JSON.stringify({ username, password }));
+        try {
+            const res = await fetch(`${API}/admin/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password }),
+            });
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                throw new Error(data.detail || 'Invalid admin credentials. Access denied.');
+            }
+            const data = await res.json();
+            sessionStorage.setItem('admin_token', data.access_token);
             navigate('/admin/panel');
-        } else {
-            setError('Invalid admin credentials. Access denied.');
+        } catch (err) {
+            setError(err.message || 'Login failed. Please try again.');
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     };
 
     return (

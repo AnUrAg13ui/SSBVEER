@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Camera, Upload, CheckCircle, AlertCircle, Loader2, Shield } from 'lucide-react';
 
@@ -7,6 +7,8 @@ const API_BASE = `http://${window.location.hostname}:8000`;
 
 const MobilePage = () => {
     const { sessionId } = useParams();
+    const [searchParams] = useSearchParams();
+    const uploadToken = searchParams.get('token');
     const [status, setStatus] = useState('idle'); // idle | uploading | done | error
     const [preview, setPreview] = useState(null);
     const [errorMsg, setErrorMsg] = useState('');
@@ -15,6 +17,11 @@ const MobilePage = () => {
 
     const handleFile = async (file) => {
         if (!file) return;
+        if (!uploadToken) {
+            setStatus('error');
+            setErrorMsg('Invalid session link. Please scan the QR code again.');
+            return;
+        }
         const objectUrl = URL.createObjectURL(file);
         setPreview(objectUrl);
         setStatus('uploading');
@@ -22,10 +29,10 @@ const MobilePage = () => {
         try {
             const formData = new FormData();
             formData.append('file', file);
-            const res = await fetch(`${API_BASE}/api/session/upload/${sessionId}`, {
-                method: 'POST',
-                body: formData,
-            });
+            const res = await fetch(
+                `${API_BASE}/api/session/upload/${sessionId}?upload_token=${encodeURIComponent(uploadToken)}`,
+                { method: 'POST', body: formData }
+            );
             if (!res.ok) throw new Error(`Upload failed: ${res.statusText}`);
             setStatus('done');
         } catch (err) {

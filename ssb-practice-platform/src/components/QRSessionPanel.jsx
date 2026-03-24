@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { QRCodeSVG } from 'qrcode.react';
 import { CheckCircle, WifiOff } from 'lucide-react';
+import api from '../api';
 
 const FRONTEND_BASE = `http://${window.location.hostname}:5173`;
 const UPLOAD_WINDOW_SECONDS = 30;
@@ -24,14 +25,18 @@ const UPLOAD_WINDOW_SECONDS = 30;
  */
 const QRSessionPanel = ({ category }) => {
     const [sessionId] = useState(() => crypto.randomUUID());
+    const [uploadToken, setUploadToken] = useState(null);
     const [uploadedUrl, setUploadedUrl] = useState(null);
     const [countdown, setCountdown] = useState(UPLOAD_WINDOW_SECONDS);
     const [wsStatus, setWsStatus] = useState('connecting'); // connecting | open | closed | ended
 
     const wsRef = useRef(null);
-    const closedRef = useRef(false);   // prevents double-close
+    const closedRef = useRef(false);
 
-    const mobileUrl = `${FRONTEND_BASE}/mobile/${sessionId}`;
+    // mobileUrl will include the upload token once registered
+    const mobileUrl = uploadToken
+        ? `${FRONTEND_BASE}/mobile/${sessionId}?token=${uploadToken}`
+        : `${FRONTEND_BASE}/mobile/${sessionId}`;
     const wsUrl = `ws://${window.location.hostname}:8000/api/session/ws/${sessionId}`;
     const catColor = { PPDT: '#e8963d', WAT: '#d9883a', SRT: '#c87a35' }[category] || '#f5a623';
 
@@ -41,6 +46,13 @@ const QRSessionPanel = ({ category }) => {
         wsRef.current?.close();
         setWsStatus('ended');
     };
+
+    // ── Register session to get upload token ───────────────────────────────────
+    useEffect(() => {
+        api.post(`/session/register/${sessionId}`)
+            .then(res => setUploadToken(res.data.upload_token))
+            .catch(() => {}); // non-fatal; QR code still works but upload will be rejected
+    }, [sessionId]);
 
     // ── Connect WebSocket on mount ─────────────────────────────────────────────
     useEffect(() => {

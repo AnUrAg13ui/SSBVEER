@@ -7,7 +7,7 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from google.oauth2 import id_token
 from google.auth.transport import requests
-import hashlib, secrets, json
+import hashlib, secrets, json, uuid
 
 from app.database import get_db
 from app import models, schemas
@@ -18,6 +18,24 @@ settings = get_settings()
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# ── In-memory token blocklist (Issue 7) ──────────────────────────────────────────
+# Maps jti (str) → expiry (datetime) so we can prune expired entries over time.
+_token_blocklist: dict[str, datetime] = {}
+
+
+def _blocklist_add(jti: str, expiry: datetime) -> None:
+    # Prune expired entries to prevent unbounded growth
+    now = datetime.utcnow()
+    to_delete = [k for k, exp in _token_blocklist.items() if exp < now]
+    for k in to_delete:
+        del _token_blocklist[k]
+    _token_blocklist[jti] = expiry
+
+
+def _blocklist_check(jti: str) -> bool:
+    """Returns True if the token is blocklisted (i.e. invalidated by logout)."""
+    return jti in _token_blocklist
 
 def _hash_password(password: str) -> str:
     return pwd_context.hash(password)
@@ -35,30 +53,53 @@ def _verify_password(plain_password: str, hashed_password: str) -> bool:
         return False
 
 def _create_token(username: str) -> str:
+    jti = str(uuid.uuid4())  # unique ID for each token — used by blocklist
     expire = datetime.utcnow() + timedelta(minutes=settings.access_token_expire_minutes)
-    to_encode = {"sub": username, "exp": expire}
+    to_encode = {"sub": username, "exp": expire, "jti": jti}
     return jwt.encode(to_encode, settings.secret_key, algorithm=settings.algorithm)
 
-def _get_user_from_token(token: str, db: Session) -> Optional[models.User]:
+def _get_user_from_token(token: str, db: Session) -> Optional[tuple]:
+    """Returns (user, jti, expiry) or (None, None, None) on failure."""
     try:
         payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
         username: str = payload.get("sub")
+        jti: str = payload.get("jti", "")
+        exp = payload.get("exp")
+        expiry = datetime.utcfromtimestamp(exp) if exp else datetime.utcnow()
         if username is None:
-            return None
-        return db.query(models.User).filter(models.User.username == username).first()
+            return None, None, None
+        user = db.query(models.User).filter(models.User.username == username).first()
+        return user, jti, expiry
     except JWTError:
-        return None
+        return None, None, None
 
-# ─── Dependency ───────────────────────────────────────────────────────────────
+# ─── Dependencies ─────────────────────────────────────────────────────────────
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> models.User:
-    user = _get_user_from_token(token, db)
+    user, jti, expiry = _get_user_from_token(token, db)
     if not user or not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    if jti and _blocklist_check(jti):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has been invalidated. Please log in again.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     return user
+
+
+def get_current_admin(current_user: models.User = Depends(get_current_user)) -> models.User:
+    """Dependency — requires the caller to have is_admin=True."""
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin privileges required",
+        )
+    return current_user
+
 
 # ─── Endpoints ────────────────────────────────────────────────────────────────
 
@@ -110,9 +151,8 @@ def login_json(creds: schemas.LoginRequest, db: Session = Depends(get_db)):
 @router.post("/google", response_model=schemas.Token)
 def google_signin(token_request: schemas.GoogleTokenRequest, db: Session = Depends(get_db)):
     try:
-        # Verify Google Token
         idinfo = id_token.verify_oauth2_token(token_request.token, requests.Request(), settings.google_client_id)
-        
+
         email = idinfo['email']
         name = idinfo.get('name', '')
         picture = idinfo.get('picture', '')
@@ -127,7 +167,7 @@ def google_signin(token_request: schemas.GoogleTokenRequest, db: Session = Depen
             while db.query(models.User).filter(models.User.username == username).first():
                 username = f"{base_username}{counter}"
                 counter += 1
-            
+
             user = models.User(
                 username=username,
                 email=email,
@@ -159,18 +199,34 @@ def get_me(current_user: models.User = Depends(get_current_user)):
 
 
 @router.post("/logout")
-def logout():
+def logout(token: str = Depends(oauth2_scheme)):
+    """Invalidate the current token by adding its jti to the blocklist (Issue 7)."""
+    try:
+        payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
+        jti = payload.get("jti", "")
+        exp = payload.get("exp")
+        if jti and exp:
+            _blocklist_add(jti, datetime.utcfromtimestamp(exp))
+    except JWTError:
+        pass  # Already expired — nothing to do
     return {"message": "Logged out successfully"}
 
 
-# ─── Admin: list all users ────────────────────────────────────────────────────
+# ─── Admin-only: user management (requires is_admin=True) ────────────────────
 @router.get("/users", response_model=list[schemas.User])
-def list_users(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+def list_users(
+    _admin: models.User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
     return db.query(models.User).all()
 
 
 @router.delete("/users/{user_id}")
-def delete_user(user_id: int, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+def delete_user(
+    user_id: int,
+    _admin: models.User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -180,7 +236,11 @@ def delete_user(user_id: int, current_user: models.User = Depends(get_current_us
 
 
 @router.patch("/users/{user_id}/toggle")
-def toggle_user(user_id: int, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+def toggle_user(
+    user_id: int,
+    _admin: models.User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")

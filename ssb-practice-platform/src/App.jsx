@@ -79,7 +79,11 @@ const AnimatedRoutes = () => {
         <Route path="/signup" element={<PageWrapper><Signup /></PageWrapper>} />
         <Route path="/mobile/:sessionId" element={<MobilePage />} />
         <Route path="/admin" element={<AdminLogin />} />
-        <Route path="/admin/panel" element={<AdminPanel />} />
+        <Route path="/admin/panel" element={
+          sessionStorage.getItem('admin_token')
+            ? <AdminPanel />
+            : <AdminLogin />
+        } />
 
         {/* App shell — with Navbar + Chatbot */}
         <Route path="/*" element={

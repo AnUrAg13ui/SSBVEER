@@ -1,4 +1,4 @@
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, Field
 from typing import List, Optional, Union
 from datetime import datetime
 import json
@@ -23,15 +23,18 @@ class UserBase(BaseModel):
     username: str
     email: Optional[str] = None
     full_name: Optional[str] = None
-    google_id: Optional[str] = None
-    picture: Optional[str] = None
 
 class UserCreate(UserBase):
+    """Signup schema — google_id/picture intentionally excluded (set only via /auth/google)."""
     password: str
 
 class User(UserBase):
+    """Full user read schema."""
     id: int
     is_active: bool
+    is_admin: bool = False
+    google_id: Optional[str] = None
+    picture: Optional[str] = None
     created_at: datetime
 
     class Config:
@@ -63,7 +66,7 @@ class Question(QuestionBase):
 
 class TestBase(BaseModel):
     title: str
-    category: str # OIR, PPDT, WAT, SRT
+    category: str  # OIR, PPDT, WAT, SRT
     description: Optional[str] = None
     duration_seconds: int
 
@@ -80,7 +83,7 @@ class Test(TestBase):
 # Results
 class SubmitTest(BaseModel):
     test_id: int
-    answers: dict[int, str] # question_id: answer ("A", "B", etc.)
+    answers: dict[int, str]
     time_taken: int
 
 class TestResult(BaseModel):
@@ -91,7 +94,7 @@ class TestResult(BaseModel):
 
 # Mock Interview
 class InterviewInput(BaseModel):
-    audio_data: Optional[str] = None # Base64 encoded or just text
+    audio_data: Optional[str] = None
     text_input: Optional[str] = None
 
 class InterviewResponse(BaseModel):
@@ -105,11 +108,19 @@ class GenerateTestRequest(BaseModel):
     category: str
     difficulty: Optional[str] = "medium"
 
+# Input length limits — prevent huge payloads reaching Gemini (Issue 29)
+_MAX_RESPONSE_LEN = 5000
+
 class EvaluateRequest(BaseModel):
     category: str
-    question: str
-    response: str
+    question: str = Field(..., max_length=2000)
+    response: str = Field(..., max_length=_MAX_RESPONSE_LEN)
 
 class FullEvaluateRequest(BaseModel):
     category: str
-    responses: dict # {q_id: answer_text}
+    responses: dict  # {q_id: answer_text}
+
+    @field_validator("responses")
+    @classmethod
+    def limit_response_lengths(cls, v: dict) -> dict:
+        return {k: str(val)[:_MAX_RESPONSE_LEN] for k, val in v.items()}

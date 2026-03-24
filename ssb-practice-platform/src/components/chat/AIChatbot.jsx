@@ -77,7 +77,7 @@ const AIChatbot = () => {
     };
 
     return (
-        <div className="fixed bottom-7 right-7 z-[60] flex flex-col items-end gap-4">
+        <div className="fixed bottom-7 right-7 z-[60] flex flex-col items-end gap-3" style={{ maxHeight: 'calc(100dvh - 2rem)' }}>
             <AnimatePresence>
                 {isOpen && (
                     <motion.div
@@ -87,13 +87,20 @@ const AIChatbot = () => {
                         transition={{ type: 'spring', damping: 22, stiffness: 280 }}
                         className="flex flex-col overflow-hidden"
                         style={isMobile ? {
-                            // Full-screen on mobile
-                            position: 'fixed', inset: 0, width: '100vw', height: '100dvh',
+                            // Full-screen on mobile — respects safe areas (notch/status bar)
+                            position: 'fixed',
+                            bottom: 0, left: 0, right: 0,
+                            top: 0,
+                            width: '100vw',
+                            height: '100dvh',
+                            paddingTop: 'env(safe-area-inset-top, 0px)',
                             background: '#0e0e0e', border: 'none', borderRadius: 0,
                             boxShadow: 'none', zIndex: 999,
                         } : {
-                            // Floating panel on desktop
-                            width: '360px', height: '540px',
+                            // Floating panel on desktop — never taller than viewport
+                            width: '360px',
+                            height:    'min(540px, calc(100dvh - 120px))',
+                            maxHeight: 'calc(100dvh - 120px)',
                             background: '#0e0e0e',
                             border: '1px solid rgba(245,166,35,0.2)',
                             borderRadius: '1rem',

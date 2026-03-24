@@ -1,24 +1,25 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, text
 from typing import List, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from app.database import get_db
 from app.routers.auth import get_current_user
 from app import models
 from pydantic import BaseModel
+from fastapi import HTTPException
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
 
-# ─── Schemas ─────────────────────────────────────────────────────────────────
+# ─── Schemas ──────────────────────────────────────────────────────────────────
 
 class SaveTestResult(BaseModel):
     test_id: int
     score: int
     total_questions: int
-    time_taken: int          # seconds
-    category: str
+    time_taken: int       # seconds
+    category: str         # saved directly on UserTest (Issue 20)
 
 class SaveInterviewResult(BaseModel):
     confidence_score: int
@@ -27,7 +28,7 @@ class SaveInterviewResult(BaseModel):
     feedback:         Optional[str] = ""
 
 
-# ─── Save endpoints (called by frontend on completion) ───────────────────────
+# ─── Save endpoints ────────────────────────────────────────────────────────────
 
 @router.post("/save-test")
 def save_test_result(
@@ -64,32 +65,34 @@ def save_interview_result(
     return {"message": "Interview result saved"}
 
 
-# ─── History and Detailed Results ───────────────────────────────────────────
+# ─── History — paginated (Issue 18) ───────────────────────────────────────────
 
 @router.get("/history")
 def get_user_history(
+    skip: int = 0,
+    limit: int = 20,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
     uid = current_user.id
-    
-    # Fetch all tests
+
     tests = (
         db.query(models.UserTest, models.Test)
         .join(models.Test, models.UserTest.test_id == models.Test.id)
         .filter(models.UserTest.user_id == uid)
         .order_by(models.UserTest.completed_at.desc())
+        .offset(skip).limit(limit)
         .all()
     )
-    
-    # Fetch all interviews
+
     interviews = (
         db.query(models.MockInterview)
         .filter(models.MockInterview.user_id == uid)
         .order_by(models.MockInterview.created_at.desc())
+        .offset(skip).limit(limit)
         .all()
     )
-    
+
     return {
         "tests": [
             {
@@ -127,21 +130,20 @@ def get_test_result_detail(
         .first()
     )
     if not result:
-        from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Result not found")
-    
+
     test = db.query(models.Test).filter(models.Test.id == result.test_id).first()
-    
+
     return {
         "id": result.id,
         "score": result.score,
         "time_taken": result.time_taken,
         "completed_at": result.completed_at.isoformat() if result.completed_at else None,
         "test": {
-            "title": test.title,
-            "category": test.category,
-            "description": test.description,
-            "duration_seconds": test.duration_seconds
+            "title": test.title if test else "Unknown",
+            "category": test.category if test else "Unknown",
+            "description": test.description if test else "",
+            "duration_seconds": test.duration_seconds if test else 0,
         }
     }
 
@@ -158,9 +160,8 @@ def get_interview_detail(
         .first()
     )
     if not interview:
-        from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Interview not found")
-    
+
     return {
         "id": interview.id,
         "transcript": interview.transcript,
@@ -169,6 +170,7 @@ def get_interview_detail(
         "clarity_score": interview.clarity_score,
         "created_at": interview.created_at.isoformat() if interview.created_at else None
     }
+
 
 @router.get("/stats")
 def get_dashboard_stats(
@@ -188,7 +190,6 @@ def get_dashboard_stats(
 
     tests_attempted = len(all_tests)
 
-    # Category breakdown: best score per category
     category_scores: dict[str, list[int]] = {}
     for ut, t in all_tests:
         cat = t.category.upper()
@@ -199,7 +200,6 @@ def get_dashboard_stats(
         for cat, scores in category_scores.items()
     }
 
-    # Recent test activity (last 10)
     recent_tests = [
         {
             "id": ut.id,
@@ -239,20 +239,38 @@ def get_dashboard_stats(
         for i in interviews[:5]
     ]
 
-    # ── Activity streak (days with any completion in last 30 days) ────────────
-    thirty_days_ago = datetime.utcnow() - timedelta(days=30)
-    active_days = set()
+    # ── Consecutive-day streak (Issue 19 fix) ─────────────────────────────────
+    # Collect all activity dates, sorted descending
+    now_utc = datetime.now(timezone.utc).date()
+    activity_dates: set = set()
     for ut, _ in all_tests:
-        if ut.completed_at and ut.completed_at >= thirty_days_ago:
-            active_days.add(ut.completed_at.date())
+        if ut.completed_at:
+            d = ut.completed_at.date() if hasattr(ut.completed_at, 'date') else ut.completed_at
+            activity_dates.add(d)
     for i in interviews:
-        if i.created_at and i.created_at >= thirty_days_ago:
-            active_days.add(i.created_at.date())
+        if i.created_at:
+            d = i.created_at.date() if hasattr(i.created_at, 'date') else i.created_at
+            activity_dates.add(d)
 
-    streak = len(active_days)
+    # Count consecutive days ending today (or yesterday if no activity today)
+    streak = 0
+    check_date = now_utc
+    while check_date in activity_dates:
+        streak += 1
+        check_date -= timedelta(days=1)
+    # If not active today, check from yesterday
+    if streak == 0:
+        check_date = now_utc - timedelta(days=1)
+        while check_date in activity_dates:
+            streak += 1
+            check_date -= timedelta(days=1)
 
-    # ── Overall score (weighted average) ─────────────────────────────────────
-    overall = 0
+    active_days_last_30 = sum(
+        1 for d in activity_dates if d >= (now_utc - timedelta(days=30))
+    )
+
+    # ── Overall score (weighted average) ──────────────────────────────────────
+    overall = 0.0
     weights = {"OIR": 0.3, "PPDT": 0.2, "WAT": 0.15, "SRT": 0.15}
     wsum = 0.0
     for cat, avg in category_avg.items():
@@ -260,7 +278,6 @@ def get_dashboard_stats(
         overall += avg * w
         wsum += w
     if avg_confidence:
-        # avg_confidence is 1-10, scale to 1-100
         overall += (avg_confidence * 10) * 0.2
         wsum += 0.2
     overall_score = round(overall / wsum, 1) if wsum else 0
@@ -274,7 +291,8 @@ def get_dashboard_stats(
         "summary": {
             "tests_attempted": tests_attempted,
             "interviews_completed": interviews_count,
-            "active_days_last_30": streak,
+            "streak": streak,                      # consecutive days (Issue 19)
+            "active_days_last_30": active_days_last_30,
             "overall_score": overall_score,
         },
         "category_scores": category_avg,
@@ -286,38 +304,44 @@ def get_dashboard_stats(
         "recent_interviews": recent_interviews,
     }
 
+
 @router.get("/leaderboard")
 def get_leaderboard(
     category: Optional[str] = "all",
-    db: Session = Depends(get_db)
+    limit: int = 50,
+    db: Session = Depends(get_db),
 ):
-    # This is a simplified leaderboard. In a real app, we'd precompute these.
-    # We'll fetch all users and their max scores.
-    users = db.query(models.User).all()
+    """
+    Leaderboard using a single aggregation query (Issue 8 — N+1 fix).
+    Returns users sorted by average test score descending.
+    """
+    # Single join + group: avg score and test count per user
+    rows = (
+        db.query(
+            models.User.id,
+            models.User.username,
+            models.User.full_name,
+            func.avg(models.UserTest.score).label("avg_score"),
+            func.count(models.UserTest.id).label("test_count"),
+        )
+        .join(models.UserTest, models.User.id == models.UserTest.user_id)
+        .group_by(models.User.id)
+        .order_by(func.avg(models.UserTest.score).desc())
+        .limit(limit)
+        .all()
+    )
+
     results = []
-    
-    for u in users:
-        # Get overall score for each user (similar logic to get_dashboard_stats)
-        # But for brevity in this mock-like real integration, we'll just sum their tests
-        tests = db.query(models.UserTest).filter(models.UserTest.user_id == u.id).all()
-        if not tests:
-            continue
-            
-        avg_score = sum(t.score or 0 for t in tests) / len(tests)
+    for rank, row in enumerate(rows, start=1):
+        avg = round(float(row.avg_score or 0), 1)
         results.append({
-            "id": u.id,
-            "name": u.full_name or u.username,
-            "username": u.username,
-            "score": round(avg_score, 1),
-            "tests": len(tests),
-            "badge": "Gold" if avg_score > 85 else ("Silver" if avg_score > 70 else "Bronze")
+            "rank": rank,
+            "id": row.id,
+            "name": row.full_name or row.username,
+            "username": row.username,
+            "score": avg,
+            "tests": row.test_count,
+            "badge": "Gold" if avg > 85 else ("Silver" if avg > 70 else "Bronze"),
         })
-    
-    # Sort by score desc
-    results.sort(key=lambda x: x["score"], reverse=True)
-    
-    # Add ranks
-    for i, res in enumerate(results):
-        res["rank"] = i + 1
-        
+
     return results
