@@ -132,17 +132,35 @@ def google_signin(token_request: schemas.GoogleTokenRequest, db: Session = Depen
         ).first()
 
         if not user:
+            # Handle username clashes (e.g. user@gmail vs user@yahoo)
+            base_username = email.split("@")[0]
+            username = base_username
+            counter = 1
+            while db.query(models.User).filter(models.User.username == username).first():
+                username = f"{base_username}{counter}"
+                counter += 1
+
+            # Generate a safe 32-char random password
+            temp_password = secrets.token_hex(16)[:72] 
+            
             user = models.User(
-                username=email.split("@")[0],
+                username=username,
                 email=email,
                 full_name=name,
                 google_id=google_id,
                 picture=picture,
-                hashed_password=_hash_password(secrets.token_hex(16)),
+                hashed_password=_hash_password(temp_password),
             )
             db.add(user)
             db.commit()
             db.refresh(user)
+        else:
+            # Sync picture/google_id if user already exists
+            if not user.google_id:
+                user.google_id = google_id
+            if picture:
+                user.picture = picture
+            db.commit()
 
         token = _create_token(user.username)
         return {"access_token": token, "token_type": "bearer"}
@@ -185,15 +203,30 @@ def google_callback(code_request: schemas.GoogleCodeRequest, db: Session = Depen
         ).first()
 
         if not user:
+            # Handle username clashes
+            base_username = email.split("@")[0]
+            username = base_username
+            counter = 1
+            while db.query(models.User).filter(models.User.username == username).first():
+                username = f"{base_username}{counter}"
+                counter += 1
+
+            # Generate a safe 32-char random password
+            temp_password = secrets.token_hex(16)[:72]
+
             user = models.User(
-                username=email.split("@")[0],
+                username=username,
                 email=email,
                 google_id=google_id,
-                hashed_password=_hash_password(secrets.token_hex(16)),
+                hashed_password=_hash_password(temp_password),
             )
             db.add(user)
             db.commit()
             db.refresh(user)
+        else:
+            if not user.google_id:
+                user.google_id = google_id
+            db.commit()
 
         token = _create_token(user.username)
         return {"access_token": token, "token_type": "bearer"}
