@@ -51,14 +51,31 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS Middleware — origins locked to ALLOWED_ORIGINS in .env
+# ── Base Routes ──────────────────────────────────────────────────
+
+@app.get("/")
+@app.get("/api")
+async def root():
+    return {
+        "status": "Active",
+        "message": "SSB Practice Platform API is running",
+        "version": "1.0.0",
+        "documentation": "/api/docs"
+    }
+
+# CORS Middleware — robust origins
+allowed_origins = [
+    "https://ssbveer.vercel.app",
+    "https://ssbveer.vercel.app/",
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "http://127.0.0.1:5173",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://ssbveer.vercel.app",
-        "http://localhost:5173"
-    ],
-    allow_credentials=True,   # 🔥 change this
+    allow_origins=allowed_origins,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
