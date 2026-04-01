@@ -4,10 +4,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     Shield, LogOut, Map, Image, FileText, Flag,
     Plus, Trash2, Upload, Check, AlertTriangle, X,
-    Users, BarChart3, BookOpen, Layers, ChevronDown, ChevronUp, Eye
+    Users, BarChart3, BookOpen, Layers, ChevronDown, ChevronUp, Eye,
+    Image as ImageIcon, Zap, Cpu
 } from 'lucide-react';
 
-const API = 'http://localhost:8000/api';
+const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
 
 // ─── Hook: admin auth ─────────────────────────────────────────────────────────
 function useAdminAuth() {
@@ -104,16 +105,58 @@ const GoldBtn = ({ onClick, children, disabled, color = '#f5a623', outline = fal
 // ──────────────────────────────────────────────────────────────────────────────
 const GPESection = ({ toast }) => {
     const [tasks, setTasks] = useState([]);
+    const [images, setImages] = useState([]);
     const [loading, setLoading] = useState(false);
-    const [form, setForm] = useState({ title: '', description: '', situation: '', resources: '', problems: '', model_answer: '' });
+    const [uploading, setUploading] = useState(false);
+    const [form, setForm] = useState({
+        title: '', description: '', situation: '', resources: '',
+        problems: '', model_answer: '', map_image_url: ''
+    });
     const [adding, setAdding] = useState(false);
+    const [showImagePicker, setShowImagePicker] = useState(false);
+    const imageFileRef = useRef(null);
 
-    const load = async () => {
+    const loadTasks = async () => {
         const r = await fetch(`${API}/admin/gpe`);
         if (r.ok) setTasks(await r.json());
     };
 
-    useEffect(() => { load(); }, []);
+    const loadImages = async () => {
+        const r = await fetch(`${API}/admin/gpe/images`);
+        if (r.ok) setImages(await r.json());
+    };
+
+    useEffect(() => { loadTasks(); loadImages(); }, []);
+
+    const uploadImage = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        setUploading(true);
+        const fd = new FormData();
+        fd.append('file', file);
+        const token = sessionStorage.getItem('admin_token') || '';
+        const r = await fetch(`${API}/admin/gpe/upload-image`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` },
+            body: fd
+        });
+        if (r.ok) {
+            const data = await r.json();
+            toast('Map image uploaded!', 'success');
+            await loadImages();
+            setForm(f => ({ ...f, map_image_url: data.url }));
+            setShowImagePicker(false);
+        } else toast('Upload failed', 'error');
+        setUploading(false);
+        e.target.value = '';
+    };
+
+    const deleteImage = async (filename) => {
+        if (!confirm(`Delete ${filename}?`)) return;
+        const r = await fetch(`${API}/admin/gpe/images/${filename}`, { method: 'DELETE', headers: adminHeaders() });
+        if (r.ok) { toast('Deleted', 'success'); loadImages(); }
+        else toast('Delete failed', 'error');
+    };
 
     const submit = async () => {
         if (!form.title || !form.situation) return toast('Title and situation are required', 'error');
@@ -123,15 +166,16 @@ const GPESection = ({ toast }) => {
             description: form.description,
             situation: form.situation,
             resources: form.resources.split('\n').filter(Boolean),
-            problems: form.problems.split('\n').filter(Boolean).map((p, i) => ({ id: `P${i+1}`, label: p.trim() })),
+            problems: form.problems.split('\n').filter(Boolean).map((p, i) => ({ id: `P${i + 1}`, label: p.trim() })),
             model_answer: form.model_answer,
+            map_image_url: form.map_image_url,
         };
         const r = await fetch(`${API}/admin/gpe`, { method: 'POST', headers: adminHeaders(), body: JSON.stringify(body) });
         if (r.ok) {
             toast('GPE Task created!', 'success');
-            setForm({ title: '', description: '', situation: '', resources: '', problems: '', model_answer: '' });
+            setForm({ title: '', description: '', situation: '', resources: '', problems: '', model_answer: '', map_image_url: '' });
             setAdding(false);
-            load();
+            loadTasks();
         } else toast('Failed to create GPE Task', 'error');
         setLoading(false);
     };
@@ -139,7 +183,7 @@ const GPESection = ({ toast }) => {
     const del = async (id) => {
         if (!confirm('Delete this GPE task?')) return;
         const r = await fetch(`${API}/admin/gpe/${id}`, { method: 'DELETE', headers: adminHeaders() });
-        if (r.ok) { toast('Deleted', 'success'); load(); }
+        if (r.ok) { toast('Deleted', 'success'); loadTasks(); }
         else toast('Delete failed', 'error');
     };
 
@@ -161,7 +205,88 @@ const GPESection = ({ toast }) => {
                         <Input label="Resources (one per line)" value={form.resources} onChange={v => setForm(f => ({ ...f, resources: v }))} placeholder={"Jeep (1)\nMotor Boat — 10 km/hr\nPCO in Vill Lion"} rows={4} />
                         <Input label="Problems / Situations (one per line)" value={form.problems} onChange={v => setForm(f => ({ ...f, problems: v }))} placeholder={"Missing fish plate on railway\nTerrorist road mine\nGirls mauled by tigress"} rows={4} />
                         <Input label="Model Answer (optional)" value={form.model_answer} onChange={v => setForm(f => ({ ...f, model_answer: v }))} placeholder="Ideal solution for reference..." rows={6} />
-                        <div className="flex gap-3">
+
+                        {/* ── Map Image Picker ── */}
+                        <div className="mb-4">
+                            <label className="block text-xs font-black uppercase tracking-widest mb-2" style={{ color: '#5a5a5a' }}>
+                                Map / Layout Image (optional)
+                            </label>
+
+                            {form.map_image_url ? (
+                                <div className="flex items-center gap-3 mb-2">
+                                    <img src={`http://localhost:8000${form.map_image_url}`} alt="Selected map"
+                                        className="w-24 h-16 object-cover rounded-xl" style={{ border: '1px solid rgba(245,166,35,0.3)' }} />
+                                    <div>
+                                        <p className="text-xs font-bold" style={{ color: '#f5a623' }}>Map image selected ✓</p>
+                                        <button onClick={() => setForm(f => ({ ...f, map_image_url: '' }))}
+                                            className="text-xs mt-1" style={{ color: '#ef4444' }}>Remove</button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <p className="text-xs mb-2" style={{ color: '#3a3a3a' }}>No image selected — users will not see a map layout.</p>
+                            )}
+
+                            <div className="flex gap-2">
+                                <GoldBtn onClick={() => setShowImagePicker(v => !v)} outline>
+                                    <ImageIcon className="w-4 h-4" /> {showImagePicker ? 'Hide' : 'Pick from Gallery'}
+                                </GoldBtn>
+                                <GoldBtn onClick={() => imageFileRef.current?.click()} disabled={uploading} outline>
+                                    <Upload className="w-4 h-4" /> {uploading ? 'Uploading...' : 'Upload New'}
+                                </GoldBtn>
+                                <input type="file" ref={imageFileRef} accept="image/*" className="hidden" onChange={uploadImage} />
+                            </div>
+                        </div>
+
+                        {/* Image gallery picker */}
+                        <AnimatePresence>
+                            {showImagePicker && (
+                                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+                                    className="mb-4 p-4 rounded-xl" style={{ background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.06)' }}>
+                                    <p className="text-xs font-black uppercase tracking-widest mb-3" style={{ color: '#5a5a5a' }}>
+                                        GPE Map Gallery — click to select
+                                    </p>
+                                    {images.length === 0 ? (
+                                        <p className="text-xs text-center py-4" style={{ color: '#2a2a2a' }}>No images uploaded yet. Use "Upload New" above.</p>
+                                    ) : (
+                                        <div className="grid grid-cols-3 gap-2">
+                                            {images.map(img => (
+                                                <div key={img.filename} className="relative group cursor-pointer rounded-xl overflow-hidden"
+                                                    style={{
+                                                        border: form.map_image_url === img.url
+                                                            ? '2px solid #f5a623'
+                                                            : '1px solid rgba(255,255,255,0.06)',
+                                                        aspectRatio: '4/3',
+                                                    }}
+                                                    onClick={() => { setForm(f => ({ ...f, map_image_url: img.url })); setShowImagePicker(false); }}>
+                                                    <img src={`http://localhost:8000${img.url}`} alt={img.filename}
+                                                        className="w-full h-full object-cover" />
+                                                    {/* Selected tick */}
+                                                    {form.map_image_url === img.url && (
+                                                        <div className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full flex items-center justify-center"
+                                                            style={{ background: '#f5a623' }}>
+                                                            <Check className="w-3 h-3 text-black" />
+                                                        </div>
+                                                    )}
+                                                    {/* Delete btn */}
+                                                    <button
+                                                        onClick={e => { e.stopPropagation(); deleteImage(img.filename); }}
+                                                        className="absolute top-1.5 left-1.5 w-5 h-5 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                                        style={{ background: 'rgba(239,68,68,0.8)' }}>
+                                                        <Trash2 className="w-2.5 h-2.5 text-white" />
+                                                    </button>
+                                                    <p className="absolute bottom-0 left-0 right-0 px-1.5 py-1 text-[10px] truncate"
+                                                        style={{ background: 'rgba(0,0,0,0.75)', color: '#888' }}>
+                                                        {img.filename}
+                                                    </p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+
+                        <div className="flex gap-3 mt-2">
                             <GoldBtn onClick={submit} disabled={loading}><Check className="w-4 h-4" /> {loading ? 'Saving...' : 'Save Task'}</GoldBtn>
                             <GoldBtn onClick={() => setAdding(false)} outline><X className="w-4 h-4" /> Cancel</GoldBtn>
                         </div>
@@ -174,11 +299,29 @@ const GPESection = ({ toast }) => {
                 {tasks.length === 0 && <p className="text-sm text-center py-6" style={{ color: '#3a3a3a' }}>No GPE tasks yet. Add your first one.</p>}
                 {tasks.map(t => (
                     <div key={t.id} className="flex items-start justify-between p-4 rounded-xl" style={{ background: '#111', border: '1px solid rgba(255,255,255,0.05)' }}>
-                        <div>
-                            <p className="text-sm font-black text-white">{t.title}</p>
-                            <p className="text-xs mt-0.5" style={{ color: '#5a5a5a' }}>{t.description}</p>
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                            {/* Show thumbnail if task has image */}
+                            {(() => {
+                                try {
+                                    const payload = JSON.parse(t.questions?.[0]?.options || '{}');
+                                    return payload.map_image_url ? (
+                                        <img src={`http://localhost:8000${payload.map_image_url}`} alt="map"
+                                            className="w-12 h-9 object-cover rounded-lg flex-shrink-0"
+                                            style={{ border: '1px solid rgba(245,166,35,0.2)' }} />
+                                    ) : (
+                                        <div className="w-12 h-9 rounded-lg flex-shrink-0 flex items-center justify-center"
+                                            style={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                            <Map className="w-4 h-4" style={{ color: '#2a2a2a' }} />
+                                        </div>
+                                    );
+                                } catch { return null; }
+                            })()}
+                            <div className="min-w-0">
+                                <p className="text-sm font-black text-white">{t.title}</p>
+                                <p className="text-xs mt-0.5 truncate" style={{ color: '#5a5a5a' }}>{t.description}</p>
+                            </div>
                         </div>
-                        <button onClick={() => del(t.id)} className="p-2 rounded-lg transition-colors" style={{ color: '#4a4a4a' }}
+                        <button onClick={() => del(t.id)} className="p-2 rounded-lg transition-colors ml-3 flex-shrink-0" style={{ color: '#4a4a4a' }}
                             onMouseEnter={e => e.currentTarget.style.color = '#ef4444'}
                             onMouseLeave={e => e.currentTarget.style.color = '#4a4a4a'}>
                             <Trash2 className="w-4 h-4" />
@@ -189,6 +332,8 @@ const GPESection = ({ toast }) => {
         </div>
     );
 };
+
+
 
 // ──────────────────────────────────────────────────────────────────────────────
 // ─── PPDT Section ─────────────────────────────────────────────────────────────
@@ -478,6 +623,44 @@ const CommandSection = ({ toast }) => {
 };
 
 // ──────────────────────────────────────────────────────────────────────────────
+// ─── AI Generation Section ────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────────────────
+const AIGenerationSection = ({ toast }) => {
+    const [generating, setGenerating] = useState(null);
+
+    const generate = async (category) => {
+        if (!confirm(`Generate a new ${category} test using AI? This may take ~10-30 seconds.`)) return;
+        setGenerating(category);
+        const r = await fetch(`${API}/tests/generate`, {
+            method: 'POST',
+            headers: adminHeaders(),
+            body: JSON.stringify({ category })
+        });
+        if (r.ok) {
+            toast(`${category} Test generated successfully!`, 'success');
+        } else {
+            toast(`Failed to generate ${category} test. Is Gemini configured?`, 'error');
+        }
+        setGenerating(null);
+    };
+
+    return (
+        <div>
+            <p className="text-sm mb-4" style={{ color: '#5a5a5a' }}>
+                Use Google Gemini to instantly generate full tests (OIR, SRT, WAT, PPDT, GTO). Ensure the backend has GEMINI_API_KEY.
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+                {['OIR', 'SRT', 'WAT', 'PPDT', 'GTO'].map(cat => (
+                    <GoldBtn key={cat} onClick={() => generate(cat)} disabled={generating !== null} outline>
+                        <Cpu className="w-4 h-4 mr-1" /> {generating === cat ? 'Working...' : `Gen ${cat}`}
+                    </GoldBtn>
+                ))}
+            </div>
+        </div>
+    );
+};
+
+// ──────────────────────────────────────────────────────────────────────────────
 // ─── Main Admin Panel ─────────────────────────────────────────────────────────
 // ──────────────────────────────────────────────────────────────────────────────
 const AdminPanel = () => {
@@ -497,7 +680,7 @@ const AdminPanel = () => {
     };
 
     useEffect(() => {
-        fetch(`${API}/admin/stats`).then(r => r.json()).then(setStats).catch(() => {});
+        fetch(`${API}/admin/stats`).then(r => r.json()).then(setStats).catch(() => { });
     }, []);
 
     return (
@@ -511,7 +694,7 @@ const AdminPanel = () => {
                     </div>
                     <div>
                         <p className="text-sm font-black text-white" style={{ fontFamily: 'Cinzel, serif' }}>Admin Panel</p>
-        <p className="text-xs" style={{ color: '#4a4a4a' }}>Logged in as {auth ? 'Administrator' : '...'}</p>
+                        <p className="text-xs" style={{ color: '#4a4a4a' }}>Logged in as {auth ? 'Administrator' : '...'}</p>
                     </div>
                 </div>
                 <button onClick={logout}
@@ -552,7 +735,11 @@ const AdminPanel = () => {
                     <h2 className="text-2xl font-black text-white mt-1" style={{ fontFamily: 'Cinzel, serif' }}>Platform Content</h2>
                 </div>
 
-                <Section title="GPE Tasks" icon={Map} color="#f5a623" defaultOpen>
+                <Section title="AI Content Generation" icon={Cpu} color="#a855f7" defaultOpen>
+                    <AIGenerationSection toast={showToast} />
+                </Section>
+
+                <Section title="GPE Tasks" icon={Map} color="#f5a623">
                     <GPESection toast={showToast} />
                 </Section>
 

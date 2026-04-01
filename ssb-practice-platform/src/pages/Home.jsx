@@ -103,14 +103,18 @@ const Home = () => {
         <div className="pt-0 bg-black min-h-screen">
 
             {/* ── HERO ──────────────────────────────────────── */}
-            <section className="relative min-h-screen flex items-center justify-center overflow-hidden px-6 dot-pattern">
+            <section className="relative min-h-screen flex items-center justify-center overflow-hidden px-6">
+                {/* Hero Background Image */}
+                <div className="absolute inset-0 z-0 opacity-40 mask-image-bottom" style={{ backgroundImage: 'url(/hero-soldier.jpg)', backgroundSize: 'cover', backgroundPosition: 'center 20%' }} />
+                <div className="absolute inset-0 z-0 bg-gradient-to-b from-black/40 via-black/80 to-black" />
+
                 {/* Gold radial glows */}
-                <div className="absolute inset-0 pointer-events-none">
+                <div className="absolute inset-0 pointer-events-none z-0">
                     <div style={{ position: 'absolute', top: '20%', left: '50%', transform: 'translateX(-50%)', width: '700px', height: '700px', background: 'radial-gradient(ellipse, rgba(245,166,35,0.08) 0%, transparent 70%)', borderRadius: '50%' }} />
                     <div style={{ position: 'absolute', bottom: 0, left: '10%', width: '400px', height: '300px', background: 'radial-gradient(ellipse, rgba(245,166,35,0.05) 0%, transparent 70%)', borderRadius: '50%' }} />
                 </div>
 
-                <div className="relative max-w-5xl mx-auto text-center" style={{ paddingTop: '120px', paddingBottom: '80px' }}>
+                <div className="relative max-w-5xl mx-auto text-center z-10" style={{ paddingTop: '120px', paddingBottom: '80px' }}>
                     <motion.div
                         initial={{ opacity: 0, scale: 0.92 }}
                         animate={{ opacity: 1, scale: 1 }}

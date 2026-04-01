@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Shield, Eye, EyeOff, Lock, User } from 'lucide-react';
 
-const API = 'http://localhost:8000/api';
+const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
 
 const AdminLogin = () => {
     const [username, setUsername] = useState('');

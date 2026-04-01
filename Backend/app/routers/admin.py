@@ -72,6 +72,8 @@ def get_stats(db: Session = Depends(get_db)):
     }
 
 # ─── GPE Tasks ───────────────────────────────────────────────────────────────
+GPE_IMAGES_DIR = Path(__file__).resolve().parent.parent.parent / "uploads" / "gpe"
+
 @router.get("/gpe")
 def list_gpe(db: Session = Depends(get_db)):
     tests = db.query(Test).filter(Test.category == "GPE").all()
@@ -89,6 +91,7 @@ def create_gpe(body: dict, db: Session = Depends(get_db), _admin: str = Depends(
     resources = body.get("resources", [])
     problems = body.get("problems", [])
     model_answer = body.get("model_answer", "")
+    map_image_url = body.get("map_image_url", "")   # ← NEW: optional uploaded map photo
 
     new_test = Test(
         title=title,
@@ -104,7 +107,8 @@ def create_gpe(body: dict, db: Session = Depends(get_db), _admin: str = Depends(
         "situation": situation,
         "resources": resources,
         "problems": problems,
-        "model_answer": model_answer
+        "model_answer": model_answer,
+        "map_image_url": map_image_url,   # ← stored in payload
     })
     q = Question(test_id=new_test.id, text=situation[:500], options=payload, correct_answer="")
     db.add(q)
@@ -118,6 +122,37 @@ def delete_gpe(test_id: int, db: Session = Depends(get_db), _admin: str = Depend
         raise HTTPException(status_code=404, detail="GPE Task not found")
     db.delete(test)
     db.commit()
+    return {"success": True}
+
+# ─── GPE Map Image upload ─────────────────────────────────────────────────────
+@router.post("/gpe/upload-image")
+async def upload_gpe_image(
+    file: UploadFile = File(...),
+    authorization: Optional[str] = Header(None)
+):
+    get_admin_from_token(authorization)
+    GPE_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+    ext = Path(file.filename).suffix.lower()
+    if ext not in [".jpg", ".jpeg", ".png", ".webp"]:
+        raise HTTPException(status_code=400, detail="Only JPG/PNG/WEBP images allowed")
+    filename = f"gpe-{uuid.uuid4().hex[:8]}{ext}"
+    dest = GPE_IMAGES_DIR / filename
+    with open(dest, "wb") as f:
+        shutil.copyfileobj(file.file, f)
+    return {"success": True, "filename": filename, "url": f"/uploads/gpe/{filename}"}
+
+@router.get("/gpe/images")
+def list_gpe_images():
+    GPE_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+    files = [f.name for f in GPE_IMAGES_DIR.iterdir() if f.suffix.lower() in [".jpg", ".jpeg", ".png", ".webp"]]
+    return [{"filename": f, "url": f"/uploads/gpe/{f}"} for f in sorted(files)]
+
+@router.delete("/gpe/images/{filename}")
+def delete_gpe_image(filename: str, _admin: str = Depends(get_admin_from_token)):
+    path = GPE_IMAGES_DIR / filename
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="File not found")
+    path.unlink()
     return {"success": True}
 
 # ─── PPDT Image upload ────────────────────────────────────────────────────────
@@ -171,7 +206,7 @@ def create_bundle(body: dict, db: Session = Depends(get_db), _admin: str = Depen
     description = body.get("description","")
     items = body.get("items", [])
 
-    duration_map = {"WAT": 900, "SRT": 1800}
+    duration_map = {"WAT": 150, "SRT": 900, "OIR": 900}
     new_test = Test(
         title=title, category=category,
         description=description,

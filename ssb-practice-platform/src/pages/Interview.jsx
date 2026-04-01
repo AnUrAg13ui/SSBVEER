@@ -9,7 +9,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import api from '../api';
 import { useAuth } from '../context/AuthContext';
 
-const API = 'http://localhost:8000/api';
+const API = 'http://127.0.0.1:8000/api';
 
 const OLQRadar = ({ data, keys }) => {
     // simplified radar or simple bar chart
