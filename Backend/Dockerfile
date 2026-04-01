@@ -1,4 +1,4 @@
-# ── Backend Dockerfile (SQLite Optimized) ──────────────────────────────────
+# ── Backend Dockerfile (Permissions Fix) ──────────────────────────────────
 FROM python:3.11-slim
 
 ENV PYTHONDONTWRITEBYTECODE 1
@@ -15,20 +15,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Create non-root user for security
-RUN useradd -m ssbuser
-RUN mkdir -p /app/data /app/uploads/ppdt /app/uploads/gpe
-RUN chown -R ssbuser:ssbuser /app
+# Initial directory creation — Render overmounts /app/data if you have a disk
+RUN mkdir -p /app/data /app/uploads
 
 # Copy source
 COPY . .
-RUN chown -R ssbuser:ssbuser /app
 
-USER ssbuser
-
-# 4 slashes for absolute path in SQLite connection string
+# Set explicit absolute database path
 ENV DATABASE_URL=sqlite:////app/data/sql_app.db
 
 EXPOSE 10000
 
+# We run as root to ensure we can write to the mounted persistent disk
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "10000"]
