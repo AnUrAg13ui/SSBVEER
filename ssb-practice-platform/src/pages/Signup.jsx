@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { User, Mail, Lock, UserPlus, AlertCircle, Eye, EyeOff, ArrowLeft, Shield, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import { GoogleLogin } from '@react-oauth/google';
+import { GoogleLogin, useGoogleLogin } from '@react-oauth/google';
 
 const InputField = ({ label, icon: Icon, type = 'text', name, value, onChange, placeholder, extra }) => (
     <div>
@@ -36,7 +36,7 @@ const Signup = () => {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
-    const { signup, googleLogin } = useAuth();
+    const { signup, googleLogin, googleLoginCode } = useAuth();
     const navigate = useNavigate();
     const toast = useToast();
 
@@ -99,6 +99,23 @@ const Signup = () => {
             setLoading(false);
         }
     };
+
+    const handleGoogleSignup = useGoogleLogin({
+        onSuccess: async (codeResponse) => {
+            try {
+                setLoading(true);
+                await googleLoginCode(codeResponse.code);
+                toast('Welcome to SSBPrep! Redirecting...', 'success', 2000);
+                navigate('/dashboard');
+            } catch (err) {
+                setError('Google Sign-In failed: ' + (err.response?.data?.detail || err.message));
+            } finally {
+                setLoading(false);
+            }
+        },
+        onError: () => setError('Google Sign-In error.'),
+        flow: 'auth-code',
+    });
 
     return (
         <div className="min-h-screen flex" style={{ background: '#000' }}>
@@ -219,25 +236,15 @@ const Signup = () => {
                     </div>
 
                     <div className="flex justify-center w-full">
-                        <GoogleLogin
-                            onSuccess={async (credentialResponse) => {
-                                try {
-                                    setLoading(true);
-                                    await googleLogin(credentialResponse.credential);
-                                    toast('Welcome to SSBPrep! Redirecting...', 'success', 2000);
-                                    navigate('/dashboard');
-                                } catch (err) {
-                                    setError('Google Sign-In failed: ' + (err.response?.data?.detail || err.message));
-                                } finally {
-                                    setLoading(false);
-                                }
-                            }}
-                            onError={() => {
-                                setError('Google Sign-In error.');
-                            }}
-                            theme="filled_black"
-                            width="100%"
-                        />
+                        <button
+                            type="button"
+                            onClick={() => handleGoogleSignup()}
+                            disabled={loading}
+                            className="w-full py-4 rounded-xl font-bold text-sm bg-white text-black flex items-center justify-center gap-3 transition-colors hover:bg-gray-100 disabled:opacity-50"
+                        >
+                            <img src="https://www.gstatic.com/images/branding/product/1x/gsa_512dp.png" alt="Google" className="w-5 h-5" />
+                            Sign up with Google
+                        </button>
                     </div>
 
                     <p className="mt-8 text-center text-sm" style={{ color: '#4a4a4a' }}>

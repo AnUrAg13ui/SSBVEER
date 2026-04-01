@@ -6,8 +6,9 @@ from typing import Optional
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from google.oauth2 import id_token
-from google.auth.transport import requests
-import hashlib, secrets, json, uuid
+from google.auth.transport import requests as google_requests
+import requests
+import hashlib, secrets, json, uuid, google_auth_oauthlib.flow
 
 from app.database import get_db
 from app import models, schemas
@@ -194,6 +195,76 @@ def google_signin(token_request: schemas.GoogleTokenRequest, db: Session = Depen
     except ValueError as e:
         print(f"DEBUG: Google token validation failed: {str(e)}")
         raise HTTPException(status_code=401, detail=f"Invalid Google token: {str(e)}")
+
+
+@router.post("/google/callback", response_model=schemas.Token)
+def google_callback(code_request: schemas.GoogleCodeRequest, db: Session = Depends(get_db)):
+    """Exchange a Google Auth Code for a custom JWT (server-side flow)."""
+    try:
+        # 1. Exchange code for credentials
+        token_endpoint = "https://oauth2.googleapis.com/token"
+        payload = {
+            "code": code_request.code,
+            "client_id": settings.google_client_id,
+            "client_secret": settings.google_client_secret,
+            "redirect_uri": code_request.redirect_uri or "postmessage",
+            "grant_type": "authorization_code",
+        }
+        
+        response = requests.post(token_endpoint, data=payload)
+        if not response.ok:
+            raise HTTPException(status_code=400, detail=f"Google code exchange failed: {response.text}")
+        
+        tokens = response.json()
+        id_token_str = tokens.get("id_token")
+        
+        if not id_token_str:
+            raise HTTPException(status_code=400, detail="No id_token returned from Google")
+
+        # 2. Verify the ID Token (shared logic with /google)
+        client_id = settings.google_client_id.strip() if settings.google_client_id else None
+        idinfo = id_token.verify_oauth2_token(id_token_str, google_requests.Request(), client_id, clock_skew=10)
+        
+        email = idinfo['email']
+        name = idinfo.get('name', '')
+        picture = idinfo.get('picture', '')
+        google_id = idinfo['sub']
+
+        # 3. User Lookup / Creation (same as google_signin)
+        user = db.query(models.User).filter((models.User.google_id == google_id) | (models.User.email == email)).first()
+
+        if not user:
+            username = email.split('@')[0]
+            counter = 1
+            base_username = username
+            while db.query(models.User).filter(models.User.username == username).first():
+                username = f"{base_username}{counter}"
+                counter += 1
+
+            user = models.User(
+                username=username,
+                email=email,
+                full_name=name,
+                google_id=google_id,
+                picture=picture,
+                hashed_password=_hash_password(secrets.token_hex(16))
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+        else:
+            if not user.google_id:
+                user.google_id = google_id
+            if picture:
+                user.picture = picture
+            db.commit()
+
+        token = _create_token(user.username)
+        return {"access_token": token, "token_type": "bearer"}
+
+    except Exception as e:
+        print(f"DEBUG: callback failed: {str(e)}")
+        raise HTTPException(status_code=401, detail=f"Authentication failed: {str(e)}")
 
 
 @router.get("/me", response_model=schemas.User)

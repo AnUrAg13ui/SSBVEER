@@ -18,6 +18,10 @@ class LoginRequest(BaseModel):
 class GoogleTokenRequest(BaseModel):
     token: str
 
+class GoogleCodeRequest(BaseModel):
+    code: str
+    redirect_uri: Optional[str] = None
+
 # User
 class UserBase(BaseModel):
     username: str

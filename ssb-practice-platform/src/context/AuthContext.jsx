@@ -202,6 +202,15 @@ export const AuthProvider = ({ children }) => {
         return res.data;
     };
 
+    const googleLoginCode = async (code) => {
+        const res = await api.post('/auth/google/callback', { code });
+        saveToken(res.data.access_token);
+        const userRes = await api.get('/auth/me');
+        setUser(userRes.data);
+        setIsAuth(true);
+        return res.data;
+    };
+
     // ── "Stay logged in" handler ──────────────────────────────────────────────
     const handleStayIn = useCallback(async () => {
         setShowWarning(false);
@@ -219,7 +228,7 @@ export const AuthProvider = ({ children }) => {
     }, [logout, resetInactivityTimer]);
 
     return (
-        <AuthContext.Provider value={{ user, isAuth, loading, login, signup, googleLogin, logout }}>
+        <AuthContext.Provider value={{ user, isAuth, loading, login, signup, googleLogin, googleLoginCode, logout }}>
             {children}
             {/* Session expiry warning modal — rendered at context level so it's always on top */}
             <SessionWarningModal

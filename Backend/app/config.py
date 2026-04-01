@@ -21,6 +21,7 @@ class Settings(BaseSettings):
 
     # ── External APIs ────────────────────────────────────────────────
     google_client_id: str = ""
+    google_client_secret: str = ""
     gemini_api_key: str = ""
 
     # ── App Settings ─────────────────────────────────────────────────

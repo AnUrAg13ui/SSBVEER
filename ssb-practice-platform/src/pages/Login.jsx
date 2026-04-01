@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { User, Lock, LogIn, AlertCircle, Eye, EyeOff, ArrowLeft, Shield, Star } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import { GoogleLogin } from '@react-oauth/google';
+import { GoogleLogin, useGoogleLogin } from '@react-oauth/google';
 
 const Login = () => {
     const [username, setUsername] = useState('');
@@ -13,7 +13,7 @@ const Login = () => {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
-    const { login, googleLogin } = useAuth();
+    const { login, googleLogin, googleLoginCode } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
     const toast = useToast();
@@ -40,6 +40,23 @@ const Login = () => {
             setLoading(false);
         }
     };
+
+    const handleGoogleLogin = useGoogleLogin({
+        onSuccess: async (codeResponse) => {
+            try {
+                setLoading(true);
+                await googleLoginCode(codeResponse.code);
+                toast('Welcome back! Redirecting...', 'success', 2000);
+                navigate(from, { replace: true });
+            } catch (err) {
+                setError('Google Sign-In failed: ' + (err.response?.data?.detail || err.message));
+            } finally {
+                setLoading(false);
+            }
+        },
+        onError: () => setError('Google Sign-In error.'),
+        flow: 'auth-code',
+    });
 
     return (
         <div className="min-h-screen flex" style={{ background: '#000' }}>
@@ -187,25 +204,15 @@ const Login = () => {
                     </div>
 
                     <div className="flex justify-center w-full">
-                        <GoogleLogin
-                            onSuccess={async (credentialResponse) => {
-                                try {
-                                    setLoading(true);
-                                    await googleLogin(credentialResponse.credential);
-                                    toast('Welcome back! Redirecting...', 'success', 2000);
-                                    navigate(from, { replace: true });
-                                } catch (err) {
-                                    setError('Google Sign-In failed: ' + (err.response?.data?.detail || err.message));
-                                } finally {
-                                    setLoading(false);
-                                }
-                            }}
-                            onError={() => {
-                                setError('Google Sign-In error.');
-                            }}
-                            theme="filled_black"
-                            width="100%"
-                        />
+                        <button
+                            type="button"
+                            onClick={() => handleGoogleLogin()}
+                            disabled={loading}
+                            className="w-full py-4 rounded-xl font-bold text-sm bg-white text-black flex items-center justify-center gap-3 transition-colors hover:bg-gray-100 disabled:opacity-50"
+                        >
+                            <img src="https://www.gstatic.com/images/branding/product/1x/gsa_512dp.png" alt="Google" className="w-5 h-5" />
+                            Sign in with Google
+                        </button>
                     </div>
 
                     <p className="mt-8 text-center text-sm" style={{ color: '#4a4a4a' }}>
