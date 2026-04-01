@@ -18,7 +18,9 @@ settings = get_settings()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # ── Startup ────────────────────────────────────────────────────────────
+    logger.info("Initializing database schema...")
     models.Base.metadata.create_all(bind=engine)
+    logger.info("Database initialized successfully.")
 
     if settings.is_weak_secret:
         logger.critical(

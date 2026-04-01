@@ -34,14 +34,20 @@ def _blocklist_check(jti: str) -> bool:
 
 # ── Password Helpers ────────────────────────────────────────────
 def _hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    # Bcrypt limit is 72 bytes; truncate to prevent crashes
+    return pwd_context.hash(password.encode('utf-8')[:72])
 
 def _verify_password(plain_password: str, hashed_password: str) -> bool:
     if not hashed_password:
         return False
+    # Truncate input to match Bcrypt's max limit
+    safe_password = plain_password.encode('utf-8')[:72]
     if len(hashed_password) == 64:
-        return hashlib.sha256(plain_password.encode()).hexdigest() == hashed_password
-    return pwd_context.verify(plain_password, hashed_password)
+        return hashlib.sha256(safe_password).hexdigest() == hashed_password
+    try:
+        return pwd_context.verify(safe_password, hashed_password)
+    except ValueError:
+        return False
 
 
 # ── JWT ─────────────────────────────────────────────────────────
