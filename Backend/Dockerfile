@@ -1,35 +1,34 @@
 # ── Backend Dockerfile (SQLite Optimized) ──────────────────────────────────
 FROM python:3.11-slim
 
-# Set environment variables
 ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
 
-# Set working directory
 WORKDIR /app
 
-# Install system dependencies (slim version)
+# Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
+# Install dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application source
-COPY . .
-
-# Create storage and data directories
-# /app/data will contain the SQLite database
-# /app/uploads will contain PPDT/SRT images
+# Create non-root user for security
+RUN useradd -m ssbuser
 RUN mkdir -p /app/data /app/uploads/ppdt /app/uploads/gpe
+RUN chown -R ssbuser:ssbuser /app
 
-# Set environment variable to the SQLite path if not overridden by .env
-ENV DATABASE_URL=sqlite:///./data/sql_app.db
+# Copy source
+COPY . .
+RUN chown -R ssbuser:ssbuser /app
 
-# Expose API port (Render defaults to 10000)
+USER ssbuser
+
+# 4 slashes for absolute path in SQLite connection string
+ENV DATABASE_URL=sqlite:////app/data/sql_app.db
+
 EXPOSE 10000
 
-# Run Uvicorn
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "10000"]
