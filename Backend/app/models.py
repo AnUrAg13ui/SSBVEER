@@ -20,6 +20,7 @@ class User(Base):
     hashed_password = Column(String(255), nullable=True)  # Nullable for Google Signin users
     google_id = Column(String(255), unique=True, index=True, nullable=True)
     picture = Column(String(500), nullable=True)
+    mobile = Column(String(20), nullable=True)
     is_active = Column(Boolean, default=True)
     is_admin = Column(Boolean, default=False)
     created_at = Column(DateTime, default=_utcnow)

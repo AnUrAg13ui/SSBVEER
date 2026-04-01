@@ -5,7 +5,7 @@ import {
     Menu, X, Shield, LayoutDashboard, LogOut, ChevronDown,
     Swords, Target, Brain, Mic2, Users, Trophy, BookOpen,
     Zap, BrainCircuit, Activity, Layers, MessageSquare, Flag, FileText,
-    Sun, Moon
+    Sun, Moon, User as UserIcon
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -220,8 +220,9 @@ const Navbar = () => {
     const [scrolled, setScrolled] = useState(false);
     const [activeDropdown, setActiveDropdown] = useState(null);
     const [mobileSection, setMobileSection] = useState(null);
+    const [profileOpen, setProfileOpen] = useState(false);
 
-    const { isAuth, logout } = useAuth();
+    const { isAuth, logout, user } = useAuth();
     const { theme, toggleTheme } = useTheme();
     const location = useLocation();
     const navigate = useNavigate();
@@ -347,9 +348,93 @@ const Navbar = () => {
                             <Link to="/dashboard" className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all" style={{ background: 'rgba(245,166,35,0.1)', border: '1px solid rgba(245,166,35,0.25)', color: '#f5a623' }}>
                                 <LayoutDashboard className="w-4 h-4" /> Dashboard
                             </Link>
-                            <button onClick={logout} className="p-2.5 rounded-xl transition-all" style={{ background: theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)', border: theme === 'dark' ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.08)', color: '#6b6b6b' }}>
-                                <LogOut className="w-5 h-5" />
-                            </button>
+                            
+                            {/* Profile Dropdown Trigger */}
+                            <div className="relative">
+                                <button 
+                                    onClick={() => setProfileOpen(!profileOpen)}
+                                    className="flex items-center gap-2 p-1 pr-3 rounded-full transition-all group outline-none"
+                                    style={{ 
+                                        background: theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
+                                        border: theme === 'dark' ? '1px solid rgba(245,166,35,0.15)' : '1px solid rgba(245,166,35,0.25)',
+                                        cursor: 'pointer',
+                                        userSelect: 'none'
+                                    }}
+                                >
+                                    <div className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center pointer-events-none" style={{ background: '#222' }}>
+                                        {user?.picture ? (
+                                            <img src={user.picture} alt="Avatar" className="w-full h-full object-cover" />
+                                        ) : (
+                                            <UserIcon className="w-4 h-4 text-amber-500" />
+                                        )}
+                                    </div>
+                                    <span className="text-sm font-bold truncate max-w-[100px] pointer-events-none" style={{ color: theme === 'dark' ? '#fff' : '#111' }}>
+                                        {user?.full_name?.split(' ')[0] || user?.username}
+                                    </span>
+                                    <ChevronDown className={`w-3.5 h-3.5 transition-transform ${profileOpen ? 'rotate-180' : ''}`} style={{ color: '#6b6b6b' }} />
+                                </button>
+
+                                {/* Profile Dropdown Menu */}
+                                <AnimatePresence>
+                                    {profileOpen && (
+                                        <>
+                                            <div className="fixed inset-0 z-40" onClick={() => setProfileOpen(false)} />
+                                            <motion.div 
+                                                initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                                exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                                                className="absolute right-0 mt-3 w-72 z-50 rounded-2xl overflow-hidden p-2"
+                                                style={{ 
+                                                    background: theme === 'dark' ? '#111' : '#fff',
+                                                    border: '1px solid rgba(245,166,35,0.2)',
+                                                    boxShadow: '0 20px 50px rgba(0,0,0,0.3)'
+                                                }}
+                                            >
+                                                {/* Profile Header */}
+                                                <div className="p-4 mb-2 rounded-xl flex items-center gap-4" style={{ background: 'rgba(245,166,35,0.04)' }}>
+                                                    <div className="w-12 h-12 rounded-xl overflow-hidden flex items-center justify-center border border-amber-500/20" style={{ background: '#222' }}>
+                                                        {user?.picture ? (
+                                                            <img src={user.picture} alt="Avatar" className="w-full h-full object-cover" />
+                                                        ) : (
+                                                            <UserIcon className="w-6 h-6 text-amber-500" />
+                                                        )}
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-sm font-black truncate" style={{ color: theme === 'dark' ? '#fff' : '#111' }}>{user?.full_name || user?.username}</p>
+                                                        <p className="text-xs truncate" style={{ color: '#6b6b6b' }}>{user?.email || '@' + user?.username}</p>
+                                                    </div>
+                                                </div>
+
+                                                {/* Profile Details */}
+                                                <div className="px-3 py-4 space-y-3">
+                                                    {user?.mobile && (
+                                                        <div className="flex items-center gap-3 px-2">
+                                                            <Activity className="w-4 h-4 text-amber-500" />
+                                                            <span className="text-xs font-medium" style={{ color: '#9ca3af' }}>{user.mobile}</span>
+                                                        </div>
+                                                    )}
+                                                    <div className="flex items-center gap-3 px-2">
+                                                        <Activity className="w-4 h-4 text-amber-500" />
+                                                        <span className="text-xs font-medium uppercase tracking-wider" style={{ color: '#444' }}>
+                                                            Status: <span className="text-emerald-500">Active Duty</span>
+                                                        </span>
+                                                    </div>
+                                                </div>
+
+                                                <div className="h-px w-full my-2" style={{ background: 'rgba(245,166,35,0.1)' }} />
+
+                                                <button 
+                                                    onClick={() => logout()}
+                                                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all group hover:bg-red-500/5 text-red-500"
+                                                >
+                                                    <LogOut className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+                                                    <span className="text-sm font-bold uppercase tracking-widest">Sign Out Mission</span>
+                                                </button>
+                                            </motion.div>
+                                        </>
+                                    )}
+                                </AnimatePresence>
+                            </div>
                         </div>
                     ) : (
                         <div className="flex items-center gap-3">
@@ -431,10 +516,19 @@ const Navbar = () => {
 
                                 {isAuth ? (
                                     <div className="flex flex-col gap-3">
+                                        <div className="p-4 rounded-2xl mb-2 flex items-center gap-4" style={{ background: 'rgba(245,166,35,0.08)', border: '1px solid rgba(245,166,35,0.2)' }}>
+                                            <div className="w-12 h-12 rounded-xl overflow-hidden flex items-center justify-center" style={{ background: '#111' }}>
+                                                {user?.picture ? <img src={user.picture} alt="Avatar" className="w-full h-full object-cover" /> : <UserIcon className="w-6 h-6 text-amber-500" />}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-base font-black truncate" style={{ color: theme === 'dark' ? '#fff' : '#111' }}>{user?.full_name || user?.username}</p>
+                                                <p className="text-xs truncate opacity-60">{user?.email || '@' + user?.username}</p>
+                                            </div>
+                                        </div>
                                         <Link to="/dashboard" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-4 py-3.5 rounded-xl font-bold text-sm text-center justify-center" style={{ background: 'rgba(245,166,35,0.1)', border: '1px solid rgba(245,166,35,0.2)', color: '#f5a623' }}>
                                             <LayoutDashboard className="w-4 h-4" /> Dashboard
                                         </Link>
-                                        <button onClick={logout} className="w-full py-3.5 rounded-xl font-bold text-sm" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.18)', color: '#ef4444' }}>Sign Out</button>
+                                        <button onClick={logout} className="w-full py-3.5 rounded-xl font-bold text-sm" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.18)', color: '#ef4444' }}>Sign Out Mission</button>
                                     </div>
                                 ) : (
                                     <Link to="/signup" onClick={() => setIsOpen(false)} className="btn-gold block w-full py-3.5 rounded-xl font-bold text-sm text-center text-black">Get Started →</Link>

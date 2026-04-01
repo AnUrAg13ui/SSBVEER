@@ -23,6 +23,7 @@ class UserBase(BaseModel):
     username: str
     email: Optional[str] = None
     full_name: Optional[str] = None
+    mobile: Optional[str] = None
 
 class UserCreate(UserBase):
     """Signup schema — google_id/picture intentionally excluded (set only via /auth/google)."""
@@ -35,6 +36,7 @@ class User(UserBase):
     is_admin: bool = False
     google_id: Optional[str] = None
     picture: Optional[str] = None
+    mobile: Optional[str] = None
     created_at: datetime
 
     class Config:

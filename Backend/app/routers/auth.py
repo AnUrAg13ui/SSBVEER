@@ -151,7 +151,9 @@ def login_json(creds: schemas.LoginRequest, db: Session = Depends(get_db)):
 @router.post("/google", response_model=schemas.Token)
 def google_signin(token_request: schemas.GoogleTokenRequest, db: Session = Depends(get_db)):
     try:
-        idinfo = id_token.verify_oauth2_token(token_request.token, requests.Request(), settings.google_client_id)
+        client_id = settings.google_client_id.strip() if settings.google_client_id else None
+        # Allow for 10 seconds of clock skew between our server and Google's
+        idinfo = id_token.verify_oauth2_token(token_request.token, requests.Request(), client_id, clock_skew=10)
 
         email = idinfo['email']
         name = idinfo.get('name', '')
@@ -189,8 +191,9 @@ def google_signin(token_request: schemas.GoogleTokenRequest, db: Session = Depen
         token = _create_token(user.username)
         return {"access_token": token, "token_type": "bearer"}
 
-    except ValueError:
-        raise HTTPException(status_code=401, detail="Invalid Google token")
+    except ValueError as e:
+        print(f"DEBUG: Google token validation failed: {str(e)}")
+        raise HTTPException(status_code=401, detail=f"Invalid Google token: {str(e)}")
 
 
 @router.get("/me", response_model=schemas.User)

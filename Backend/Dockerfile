@@ -1,33 +1,35 @@
-# ── Backend Dockerfile ──────────────────────────────────────────────────────
-# Optimized for Render/Vercel/Production
+# ── Backend Dockerfile (SQLite Optimized) ──────────────────────────────────
 FROM python:3.11-slim
 
-# Set environment variables for better performance
+# Set environment variables
 ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
 
 # Set working directory
 WORKDIR /app
 
-# Install system dependencies (needed for some AI/Python packages)
+# Install system dependencies (slim version)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
-    libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy and install Python dependencies (layer-cache friendly)
+# Install Python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application source
 COPY . .
 
-# Ensure storage directories exist (optional, but good practice)
-RUN mkdir -p /app/uploads/ppdt /app/uploads/gpe
+# Create storage and data directories
+# /app/data will contain the SQLite database
+# /app/uploads will contain PPDT/SRT images
+RUN mkdir -p /app/data /app/uploads/ppdt /app/uploads/gpe
 
-# Expose the API port (Render defaults to 10000)
-# We can overwrite this in the Render Dashboard if needed
+# Set environment variable to the SQLite path if not overridden by .env
+ENV DATABASE_URL=sqlite:///./data/sql_app.db
+
+# Expose API port (Render defaults to 10000)
 EXPOSE 10000
 
-# Run Uvicorn - We use 0.0.0.0 because it's required for containerized exposure
+# Run Uvicorn
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "10000"]

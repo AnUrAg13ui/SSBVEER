@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { User, Mail, Lock, UserPlus, AlertCircle, Eye, EyeOff, ArrowLeft, Shield, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { GoogleLogin } from '@react-oauth/google';
 
 const InputField = ({ label, icon: Icon, type = 'text', name, value, onChange, placeholder, extra }) => (
     <div>
@@ -35,7 +36,7 @@ const Signup = () => {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
-    const { signup } = useAuth();
+    const { signup, googleLogin } = useAuth();
     const navigate = useNavigate();
     const toast = useToast();
 
@@ -207,9 +208,37 @@ const Signup = () => {
                             className="w-full py-4 mt-3 rounded-xl font-black text-base text-black flex items-center justify-center gap-3 transition-all active:scale-97"
                             style={{ background: loading ? 'rgba(245,166,35,0.5)' : '#f5a623', fontFamily: 'Cinzel, serif', boxShadow: '0 8px 24px rgba(245,166,35,0.25)', cursor: loading ? 'not-allowed' : 'pointer' }}
                         >
-                            {loading ? <div className="w-5 h-5 border-2 border-black/30 border-t-black rounded-full animate-spin" /> : <><UserPlus className="w-5 h-5" /> Create Account</>}
+                        {loading ? <div className="w-5 h-5 border-2 border-black/30 border-t-black rounded-full animate-spin" /> : <><UserPlus className="w-5 h-5" /> Create Account</>}
                         </button>
                     </form>
+
+                    <div className="my-6 flex items-center gap-4 text-center">
+                        <div className="h-px flex-1" style={{ background: 'rgba(255,255,255,0.06)' }} />
+                        <span className="text-xs font-bold" style={{ color: '#4a4a4a' }}>OR</span>
+                        <div className="h-px flex-1" style={{ background: 'rgba(255,255,255,0.06)' }} />
+                    </div>
+
+                    <div className="flex justify-center w-full">
+                        <GoogleLogin
+                            onSuccess={async (credentialResponse) => {
+                                try {
+                                    setLoading(true);
+                                    await googleLogin(credentialResponse.credential);
+                                    toast('Welcome to SSBPrep! Redirecting...', 'success', 2000);
+                                    navigate('/dashboard');
+                                } catch (err) {
+                                    setError('Google Sign-In failed: ' + (err.response?.data?.detail || err.message));
+                                } finally {
+                                    setLoading(false);
+                                }
+                            }}
+                            onError={() => {
+                                setError('Google Sign-In error.');
+                            }}
+                            theme="filled_black"
+                            width="100%"
+                        />
+                    </div>
 
                     <p className="mt-8 text-center text-sm" style={{ color: '#4a4a4a' }}>
                         Already enlisted?{' '}
