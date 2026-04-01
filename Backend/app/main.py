@@ -52,12 +52,14 @@ app = FastAPI(
 # CORS Middleware — origins locked to ALLOWED_ORIGINS in .env
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.allowed_origins_list,
-    allow_credentials=False,   # must be False when allow_origins contains "*"
+    allow_origins=[
+        "https://ssbveer.vercel.app",
+        "http://localhost:5173"
+    ],
+    allow_credentials=True,   # 🔥 change this
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 # Serve uploaded images as static files
 UPLOADS_DIR = Path(__file__).resolve().parent.parent / "uploads"
 UPLOADS_DIR.mkdir(exist_ok=True)
