@@ -84,7 +84,10 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
 @router.post("/signup")
 def signup(user_in: schemas.UserCreate, db: Session = Depends(get_db)):
     if db.query(models.User).filter(models.User.username == user_in.username).first():
-        raise HTTPException(status_code=400, detail="Username exists")
+        raise HTTPException(status_code=400, detail="Username already exists")
+    
+    if user_in.email and db.query(models.User).filter(models.User.email == user_in.email).first():
+        raise HTTPException(status_code=400, detail="An account with this email already exists")
 
     user = models.User(
         username=user_in.username,
