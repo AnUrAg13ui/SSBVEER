@@ -34,8 +34,9 @@ def _blocklist_check(jti: str) -> bool:
 
 # ── Password Helpers ────────────────────────────────────────────
 def _hash_password(password: str) -> str:
-    # Bcrypt limit is 72 bytes; truncate to prevent crashes
-    return pwd_context.hash(password.encode('utf-8')[:72])
+    if len(password) > 72:
+        password = password[:72]
+    return pwd_context.hash(password)
 
 def _verify_password(plain_password: str, hashed_password: str) -> bool:
     if not hashed_password:
