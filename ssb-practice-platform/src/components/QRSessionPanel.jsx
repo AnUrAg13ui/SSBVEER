@@ -4,7 +4,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { CheckCircle, WifiOff } from 'lucide-react';
 import api from '../api';
 
-const FRONTEND_BASE = `http://${window.location.hostname}:5173`;
+const FRONTEND_BASE = window.location.origin;
 const UPLOAD_WINDOW_SECONDS = 30;
 
 /**
@@ -37,7 +37,11 @@ const QRSessionPanel = ({ category }) => {
     const mobileUrl = uploadToken
         ? `${FRONTEND_BASE}/mobile/${sessionId}?token=${uploadToken}`
         : `${FRONTEND_BASE}/mobile/${sessionId}`;
-    const wsUrl = `ws://${window.location.hostname}:8000/api/session/ws/${sessionId}`;
+
+    // ── WebSocket URL Construction ─────────────────────────────────────────────
+    const baseApi = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000/api`;
+    const wsProto = baseApi.startsWith('https') ? 'wss' : 'ws';
+    const wsUrl = baseApi.replace(/^https?/, wsProto) + `/session/ws/${sessionId}`;
     const catColor = { PPDT: '#e8963d', WAT: '#d9883a', SRT: '#c87a35' }[category] || '#f5a623';
 
     const closeSession = () => {
@@ -66,7 +70,8 @@ const QRSessionPanel = ({ category }) => {
             try {
                 const data = JSON.parse(evt.data);
                 if (data.type === 'image_uploaded' && data.image_url) {
-                    setUploadedUrl(`http://${window.location.hostname}:8000${data.image_url}`);
+                    const backendBase = baseApi.replace('/api', '');
+                    setUploadedUrl(`${backendBase}${data.image_url}`);
                     closeSession();
                 }
             } catch (_) {}
