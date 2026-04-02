@@ -208,6 +208,8 @@ def google_callback(code_request: schemas.GoogleCodeRequest, db: Session = Depen
             settings.google_client_id
         )
 
+        email = idinfo["email"]
+        google_id = idinfo["sub"]
         name = idinfo.get("name", "")
         picture = idinfo.get("picture", "")
 
