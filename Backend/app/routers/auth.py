@@ -122,6 +122,18 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     return {"access_token": token, "token_type": "bearer"}
 
 
+@router.post("/login/json")
+def login_json(login_data: schemas.LoginRequest, db: Session = Depends(get_db)):
+    """JSON-based login for standard frontend AJAX requests."""
+    user = db.query(models.User).filter(models.User.username == login_data.username).first()
+
+    if not user or not _verify_password(login_data.password, user.hashed_password):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    token = _create_token(user.username)
+    return {"access_token": token, "token_type": "bearer"}
+
+
 # ── GOOGLE SIGN-IN (Frontend Token Flow) ────────────────────────
 @router.post("/google")
 def google_signin(token_request: schemas.GoogleTokenRequest, db: Session = Depends(get_db)):
