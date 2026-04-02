@@ -3,7 +3,8 @@ import { useParams, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Camera, Upload, CheckCircle, AlertCircle, Loader2, Shield } from 'lucide-react';
 
-const API_BASE = `http://${window.location.hostname}:8000`;
+const baseApi = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000/api`;
+const API_BASE = baseApi.replace('/api', '');
 
 const MobilePage = () => {
     const { sessionId } = useParams();

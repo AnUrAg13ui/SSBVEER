@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 
 const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+const BACKEND_BASE = API.replace('/api', '');
 
 // ─── Hook: admin auth ─────────────────────────────────────────────────────────
 function useAdminAuth() {
@@ -214,7 +215,7 @@ const GPESection = ({ toast }) => {
 
                             {form.map_image_url ? (
                                 <div className="flex items-center gap-3 mb-2">
-                                    <img src={`http://localhost:8000${form.map_image_url}`} alt="Selected map"
+                                    <img src={`${BACKEND_BASE}${form.map_image_url}`} alt="Selected map"
                                         className="w-24 h-16 object-cover rounded-xl" style={{ border: '1px solid rgba(245,166,35,0.3)' }} />
                                     <div>
                                         <p className="text-xs font-bold" style={{ color: '#f5a623' }}>Map image selected ✓</p>
@@ -258,7 +259,7 @@ const GPESection = ({ toast }) => {
                                                         aspectRatio: '4/3',
                                                     }}
                                                     onClick={() => { setForm(f => ({ ...f, map_image_url: img.url })); setShowImagePicker(false); }}>
-                                                    <img src={`http://localhost:8000${img.url}`} alt={img.filename}
+                                                    <img src={`${BACKEND_BASE}${img.url}`} alt={img.filename}
                                                         className="w-full h-full object-cover" />
                                                     {/* Selected tick */}
                                                     {form.map_image_url === img.url && (
@@ -305,7 +306,7 @@ const GPESection = ({ toast }) => {
                                 try {
                                     const payload = JSON.parse(t.questions?.[0]?.options || '{}');
                                     return payload.map_image_url ? (
-                                        <img src={`http://localhost:8000${payload.map_image_url}`} alt="map"
+                                        <img src={`${BACKEND_BASE}${payload.map_image_url}`} alt="map"
                                             className="w-12 h-9 object-cover rounded-lg flex-shrink-0"
                                             style={{ border: '1px solid rgba(245,166,35,0.2)' }} />
                                     ) : (
@@ -391,11 +392,11 @@ const PPDTSection = ({ toast }) => {
                 {images.map(img => (
                     <div key={img.filename} className="relative group rounded-xl overflow-hidden"
                         style={{ border: '1px solid rgba(255,255,255,0.07)', background: '#111', aspectRatio: '4/3' }}>
-                        <img src={`http://localhost:8000${img.url}`} alt={img.filename}
+                        <img src={`${BACKEND_BASE}${img.url}`} alt={img.filename}
                             className="w-full h-full object-cover cursor-pointer"
-                            onClick={() => setPreview(`http://localhost:8000${img.url}`)} />
+                            onClick={() => setPreview(`${BACKEND_BASE}${img.url}`)} />
                         <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                            <button onClick={() => setPreview(`http://localhost:8000${img.url}`)}
+                            <button onClick={() => setPreview(`${BACKEND_BASE}${img.url}`)}
                                 className="p-2 rounded-lg" style={{ background: 'rgba(245,166,35,0.2)', color: '#f5a623' }}>
                                 <Eye className="w-4 h-4" />
                             </button>
