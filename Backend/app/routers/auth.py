@@ -178,7 +178,10 @@ def google_signin(token_request: schemas.GoogleTokenRequest, db: Session = Depen
     except Exception as e:
         raise HTTPException(status_code=401, detail=f"Google auth failed: {str(e)}")
 
-
+@router.get("/me", response_model=schemas.User)
+def get_me(current_user: models.User = Depends(get_current_user)):
+    """Fetch the full profile of the currently logged-in user."""
+    return current_user
 # ── GOOGLE CALLBACK (Auth Code Flow) ────────────────────────────
 @router.post("/google/callback")
 def google_callback(code_request: schemas.GoogleCodeRequest, db: Session = Depends(get_db)):
@@ -205,8 +208,8 @@ def google_callback(code_request: schemas.GoogleCodeRequest, db: Session = Depen
             settings.google_client_id
         )
 
-        email = idinfo["email"]
-        google_id = idinfo["sub"]
+        name = idinfo.get("name", "")
+        picture = idinfo.get("picture", "")
 
         user = db.query(models.User).filter(
             (models.User.google_id == google_id) | (models.User.email == email)
@@ -227,7 +230,9 @@ def google_callback(code_request: schemas.GoogleCodeRequest, db: Session = Depen
             user = models.User(
                 username=username,
                 email=email,
+                full_name=name,
                 google_id=google_id,
+                picture=picture,
                 hashed_password=_hash_password(temp_password),
             )
             db.add(user)
@@ -236,6 +241,10 @@ def google_callback(code_request: schemas.GoogleCodeRequest, db: Session = Depen
         else:
             if not user.google_id:
                 user.google_id = google_id
+            if picture:
+                user.picture = picture
+            if name and not user.full_name:
+                user.full_name = name
             db.commit()
 
         token = _create_token(user.username)
@@ -243,3 +252,12 @@ def google_callback(code_request: schemas.GoogleCodeRequest, db: Session = Depen
 
     except Exception as e:
         raise HTTPException(status_code=401, detail=f"Callback failed: {str(e)}")
+
+
+@router.post("/logout")
+def logout(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    """Add the current token to the blocklist to invalidate the session."""
+    user, jti, expiry = _get_user_from_token(token, db)
+    if jti:
+        _blocklist_add(jti, expiry)
+    return {"detail": "Successfully logged out"}
