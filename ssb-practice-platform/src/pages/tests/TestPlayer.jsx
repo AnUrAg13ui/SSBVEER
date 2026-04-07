@@ -486,6 +486,11 @@ const TestPlayer = () => {
     const [responses, setResponses] = useState({});
     const [phase, setPhase] = useState('test');    // 'test' | 'upload_prompt' | 'done'
     const [error, setError] = useState('');
+    const [isMobile, setIsMobile] = useState(false);
+
+    useEffect(() => {
+        setIsMobile(/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent));
+    }, []);
     const [ppdtPhase, setPpdtPhase] = useState('viewing'); // 'viewing' | 'writing'
     const [ppdtInputMode, setPpdtInputMode] = useState('type'); // 'type' | 'upload'
     const [ppdtImage, setPpdtImage] = useState('');
@@ -661,7 +666,13 @@ const TestPlayer = () => {
                             initialTime={ppdtPhase === 'viewing' ? 30 : 240}
                             onTimeUp={ppdtPhase === 'viewing'
                                 ? () => setPpdtPhase('writing')
-                                : () => setPpdtUploadWindow(true)}
+                                : () => {
+                                    if (isMobile) {
+                                        setPhase('upload_prompt');
+                                    } else {
+                                        setPpdtUploadWindow(true);
+                                    }
+                                }}
                             color={catColor}
                         />
                     ) : (
@@ -876,7 +887,11 @@ const TestPlayer = () => {
                                         setPpdtPhase('writing');
                                     } else if (ppdtPhase === 'writing') {
                                         if (!ppdtUploadWindow) {
-                                            setPpdtUploadWindow(true);
+                                            if (isMobile) {
+                                                setPhase('upload_prompt');
+                                            } else {
+                                                setPpdtUploadWindow(true);
+                                            }
                                         } else {
                                             finish();
                                         }
