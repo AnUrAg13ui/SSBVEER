@@ -16,27 +16,84 @@ const MobilePage = () => {
     const fileRef = useRef(null);
     const cameraRef = useRef(null);
 
-    const handleFile = async (file) => {
-        if (!file) return;
+    const compressImage = (file) => {
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = (event) => {
+                const img = new Image();
+                img.src = event.target.result;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const MAX_WIDTH = 1600;
+                    const MAX_HEIGHT = 1600;
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > height) {
+                        if (width > MAX_WIDTH) {
+                            height *= MAX_WIDTH / width;
+                            width = MAX_WIDTH;
+                        }
+                    } else {
+                        if (height > MAX_HEIGHT) {
+                            width *= MAX_HEIGHT / height;
+                            height = MAX_HEIGHT;
+                        }
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    
+                    canvas.toBlob((blob) => {
+                        resolve(new File([blob], file.name, {
+                            type: 'image/jpeg',
+                            lastModified: Date.now(),
+                        }));
+                    }, 'image/jpeg', 0.85); // 85% quality is a good balance
+                };
+            };
+        });
+    };
+
+    const handleFile = async (originalFile) => {
+        if (!originalFile) return;
         if (!uploadToken) {
             setStatus('error');
             setErrorMsg('Invalid session link. Please scan the QR code again.');
             return;
         }
-        const objectUrl = URL.createObjectURL(file);
-        setPreview(objectUrl);
+
         setStatus('uploading');
+        setErrorMsg('');
 
         try {
+            // Compress image to save memory and bandwidth
+            const file = originalFile.type.startsWith('image/') 
+                ? await compressImage(originalFile)
+                : originalFile;
+
+            const objectUrl = URL.createObjectURL(file);
+            setPreview(objectUrl);
+
             const formData = new FormData();
             formData.append('file', file);
+            
             const res = await fetch(
                 `${API_BASE}/api/session/upload/${sessionId}?upload_token=${encodeURIComponent(uploadToken)}`,
                 { method: 'POST', body: formData }
             );
-            if (!res.ok) throw new Error(`Upload failed: ${res.statusText}`);
+            
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                throw new Error(data.detail || `Upload failed: ${res.statusText}`);
+            }
+            
             setStatus('done');
         } catch (err) {
+            console.error("Upload error:", err);
             setStatus('error');
             setErrorMsg(err.message || 'Upload failed. Please try again.');
         }

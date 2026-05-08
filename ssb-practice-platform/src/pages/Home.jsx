@@ -287,30 +287,14 @@ const Home = () => {
 
             {/* ── FOOTER ────────────────────────────────────── */}
             <footer style={{ borderTop: '1px solid rgba(245,166,35,0.1)', background: '#000' }}>
-                <div className="max-w-7xl mx-auto px-6 py-16">
-                    <div className="flex flex-col md:flex-row items-center justify-between gap-8">
-                        <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-lg flex items-center justify-center overflow-hidden" style={{ border: '1px solid rgba(245,166,35,0.2)' }}>
-                                <img src="/logo.png" className="w-full h-full object-cover" />
-                            </div>
-                            <span className="text-xl font-black tracking-widest" style={{ fontFamily: 'Cinzel, serif', color: '#fff' }}>
-                                Veer<span style={{ color: '#f5a623' }}>SSB</span>
-                            </span>
-                        </div>
-                        <div className="flex flex-wrap items-center justify-center gap-8">
-                            {[
-                                { name: 'OIR Tests', path: '/tests?category=OIR' },
-                                { name: 'PPDT', path: '/tests?category=PPDT' },
-                                { name: 'WAT/SRT', path: '/tests?category=WAT' },
-                                { name: 'Interview', path: '/interview' },
-                                { name: 'Leaderboard', path: '/leaderboard' },
-                            ].map(l => (
-                                <Link key={l.name} to={l.path} className="text-sm font-semibold transition-colors hover:text-amber-400" style={{ color: '#5a5a5a' }}>
-                                    {l.name}
-                                </Link>
-                            ))}
-                        </div>
-                        <p className="text-xs" style={{ color: '#3a3a3a' }}>© 2026 VeerSSB · Built for Aspirants</p>
+                <div className="max-w-7xl mx-auto px-6 py-10">
+                    <div className="text-center">
+                        <p className="text-sm font-black tracking-[0.2em] uppercase italic mb-2" style={{ color: 'rgba(245,166,35,0.4)', fontFamily: 'Cinzel, serif' }}>
+                            Built for <span style={{ color: '#f5a623' }}>Aspirants</span>
+                        </p>
+                        <p className="text-[10px] font-bold tracking-widest uppercase opacity-30" style={{ color: '#fff' }}>
+                            © 2026 VeerSSB · All Rights Reserved
+                        </p>
                     </div>
                 </div>
             </footer>

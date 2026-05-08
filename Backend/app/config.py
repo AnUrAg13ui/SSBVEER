@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     """
 
     # ── Database & Redis ─────────────────────────────────────────────
-    database_url: str = "sqlite:////app/data/sql_app.db"
+    database_url: str = "sqlite:///./data/sql_app.db"
     redis_url: str = "redis://localhost:6379/0"
 
     # ── Security ─────────────────────────────────────────────────────

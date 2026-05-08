@@ -74,7 +74,7 @@ const TASKS = [
         badge: 'SDT',
         sub: 'Describe From 5 Perspectives',
         icon: Pencil,
-        color: '#8b5cf6',
+        color: '#a85e2b',
         file: '/sdt',
         detail: 'Write about yourself from 5 perspectives: what your parents, teachers, friends, yourself, and your growth goals say about you. AI psychologist analyses your responses for OLQ traits.',
         tips: ['Be honest and balanced — avoid only positives', 'Include both strengths and areas to improve', 'Ensure consistency across all 5 perspectives'],
@@ -315,10 +315,12 @@ const GTOSimulator = () => {
 
     const handleEnter = () => {
         if (selectedTask?.file) {
-            if (selectedTask.file.startsWith('/')) {
+            // If it's an internal route (starts with / but not a static .html file)
+            if (selectedTask.file.startsWith('/') && !selectedTask.file.endsWith('.html')) {
                 navigate(selectedTask.file);
                 setSelectedTask(null);
             } else {
+                // For static HTML simulations, use the query param to load in iframe
                 navigate(`/gto-simulator?type=${selectedTask.key}`);
                 setSelectedTask(null);
             }
@@ -328,11 +330,19 @@ const GTOSimulator = () => {
     };
 
     // ── Simulator active ──────────────────────────────────────────────────────
+    // Only use SimulatorView (iframe) for static .html files.
+    // For internal routes (starting with / but not ending in .html), navigate directly.
     if (initialTask && initialTask.file) {
+        if (initialTask.file.startsWith('/') && !initialTask.file.endsWith('.html')) {
+            // Use a timeout to avoid react-router warning during render
+            setTimeout(() => navigate(initialTask.file), 0);
+            return null;
+        }
+
         return (
-            <SimulatorView 
-                task={initialTask} 
-                onBack={() => navigate('/gto-simulator')} 
+            <SimulatorView
+                task={initialTask}
+                onBack={() => navigate('/gto-simulator')}
             />
         );
     }

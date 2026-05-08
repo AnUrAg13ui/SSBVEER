@@ -21,6 +21,24 @@ except ImportError:
 GEMINI_MODEL = "gemini-2.5-flash"
 
 
+def extract_text_from_image(image_bytes: bytes) -> str:
+    """Uses Gemini Vision to perform OCR on a handwritten answer image."""
+    if not GEMINI_AVAILABLE or not client:
+        return ""
+    try:
+        from google.genai import types
+        image_part = types.Part.from_bytes(
+            data=image_bytes,
+            mime_type="image/jpeg",
+        )
+        prompt = "Extract the full handwritten text from this image accurately. This is a story written for a PPDT (Picture Perception) test. Return ONLY the extracted text, nothing else."
+        response = client.models.generate_content(model=GEMINI_MODEL, contents=[prompt, image_part])
+        return response.text.strip()
+    except Exception as e:
+        print(f"OCR Error: {e}")
+        return ""
+
+
 def generate_gemini(contents):
     """Helper: calls Gemini and returns the response text."""
     if not GEMINI_AVAILABLE:

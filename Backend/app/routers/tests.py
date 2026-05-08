@@ -347,6 +347,29 @@ def evaluate_full(
     if not questions_responses:
          raise HTTPException(status_code=400, detail="No valid responses submitted for evaluation.")
 
+    # If a manual handwritten image was uploaded, try to OCR it
+    manual_ocr_text = ""
+    if request.handwritten_image:
+        try:
+            import base64
+            # Strip prefix if present (e.g., "data:image/jpeg;base64,")
+            b64_data = request.handwritten_image
+            if "," in b64_data:
+                b64_data = b64_data.split(",")[1]
+            img_bytes = base64.b64decode(b64_data)
+            manual_ocr_text = gemini_service.extract_text_from_image(img_bytes)
+        except Exception as e:
+            logger.error(f"Manual OCR failed: {e}")
+
+    # Use the first question text for PPDT context if needed
+    if request.category.upper() == "PPDT" and manual_ocr_text:
+        # If OCR text was found, we ensure it's part of the responses if they were empty
+        if not questions_responses:
+            questions_responses.append({"question": "PPDT Story", "response": manual_ocr_text})
+        else:
+            # Prepend or append the OCR text to the existing response
+            questions_responses[0]["response"] = f"{manual_ocr_text}\n\n(OCR Supplemented)"
+
     evaluation = gemini_service.evaluate_full_test(request.category, questions_responses)
     return evaluation
 

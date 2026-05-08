@@ -629,7 +629,15 @@ const TestPlayer = () => {
 
                 {/* QR Upload Window — only mounts for PPDT after writing phase ends */}
                 {category === 'PPDT' && ppdtUploadWindow && (
-                    <QRSessionPanel category={category} />
+                    <QRSessionPanel 
+                        category={category} 
+                        onUploadSuccess={(url, text) => {
+                            if (text) {
+                                const qId = test.questions[currentIdx].id;
+                                setResponses(prev => ({ ...prev, [qId]: text }));
+                            }
+                        }}
+                    />
                 )}
                 {/* ── Header ───────────────────────────────────────────────── */}
                 <div className="flex items-center justify-between mb-8">

@@ -23,7 +23,7 @@ const UPLOAD_WINDOW_SECONDS = 30;
  * Props:
  *   category – 'PPDT' | 'WAT' | 'SRT'  (for labelling)
  */
-const QRSessionPanel = ({ category }) => {
+const QRSessionPanel = ({ category, onUploadSuccess }) => {
     const [sessionId] = useState(() => crypto.randomUUID());
     const [uploadToken, setUploadToken] = useState(null);
     const [uploadedUrl, setUploadedUrl] = useState(null);
@@ -71,7 +71,9 @@ const QRSessionPanel = ({ category }) => {
                 const data = JSON.parse(evt.data);
                 if (data.type === 'image_uploaded' && data.image_url) {
                     const backendBase = baseApi.replace('/api', '');
-                    setUploadedUrl(`${backendBase}${data.image_url}`);
+                    const fullUrl = `${backendBase}${data.image_url}`;
+                    setUploadedUrl(fullUrl);
+                    if (onUploadSuccess) onUploadSuccess(fullUrl, data.extracted_text || '');
                     closeSession();
                 }
             } catch (_) {}

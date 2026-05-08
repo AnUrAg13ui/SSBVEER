@@ -125,6 +125,7 @@ class EvaluateRequest(BaseModel):
 class FullEvaluateRequest(BaseModel):
     category: str
     responses: dict  # {q_id: answer_text}
+    handwritten_image: Optional[str] = None  # Base64 string for manual uploads
 
     @field_validator("responses")
     @classmethod

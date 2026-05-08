@@ -57,7 +57,7 @@ const GTO_TASKS = [
         label: 'Self Description',
         sub: 'Describe yourself',
         icon: MessageSquare,
-        color: '#b86c30',
+        color: '#a85e2b',
         path: '/gto-simulator?type=sdt',
     },
 ];
@@ -119,100 +119,147 @@ const NavDropdown = ({ trigger, children, open, onOpen, onClose }) => {
 };
 
 // ─── Tests dropdown content ───────────────────────────────────────────────────
-const TestsDropdown = ({ onClose }) => (
-    <div className="py-3 w-72">
-        <p className="px-5 py-2 text-xs font-black uppercase tracking-widest" style={{ color: 'rgba(245,166,35,0.35)' }}>Psychological Tests</p>
-        {TEST_ITEMS.map(item => (
-            <Link
-                key={item.path}
-                to={item.path}
-                onClick={onClose}
-                className="flex items-center gap-3 px-4 py-3 mx-2 rounded-xl transition-all group"
-                style={{ color: '#9ca3af' }}
-                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(245,166,35,0.06)'; e.currentTarget.style.color = '#fff'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#9ca3af'; }}
-            >
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: `${item.color}18` }}>
-                    <item.icon className="w-4 h-4" style={{ color: item.color }} />
+const TestsDropdown = ({ onClose }) => {
+    const { theme } = useTheme();
+    return (
+        <div className="py-3 w-80">
+            <div className="px-5 pb-3 mb-1" style={{ borderBottom: theme === 'dark' ? '1px solid rgba(245,166,35,0.1)' : '1px solid rgba(0,0,0,0.05)' }}>
+                <div className="flex items-center gap-2">
+                    <Target className="w-4 h-4" style={{ color: '#f5a623' }} />
+                    <p className="text-xs font-black uppercase tracking-widest" style={{ color: '#f5a623' }}>Psychological Tests</p>
                 </div>
-                <div>
-                    <p className="text-sm font-bold leading-tight">{item.name.split('–')[0].trim()}</p>
-                    <p className="text-xs mt-0.5" style={{ color: '#4a4a4a' }}>{item.desc}</p>
-                </div>
-            </Link>
-        ))}
-    </div>
-);
+                <p className="text-xs mt-1" style={{ color: theme === 'dark' ? '#4a4a4a' : '#888' }}>Evaluate your psychological aptitude & OLQs</p>
+            </div>
+
+            {TEST_ITEMS.map(item => (
+                <Link
+                    key={item.path}
+                    to={item.path}
+                    onClick={onClose}
+                    className="flex items-center gap-3 px-4 py-3 mx-2 rounded-xl transition-all group"
+                    style={{ color: theme === 'dark' ? '#9ca3af' : '#4b5563' }}
+                    onMouseEnter={e => { 
+                        e.currentTarget.style.background = theme === 'dark' ? 'rgba(245,166,35,0.06)' : 'rgba(245,166,35,0.08)'; 
+                        e.currentTarget.style.color = theme === 'dark' ? '#fff' : '#111'; 
+                    }}
+                    onMouseLeave={e => { 
+                        e.currentTarget.style.background = 'transparent'; 
+                        e.currentTarget.style.color = theme === 'dark' ? '#9ca3af' : '#4b5563'; 
+                    }}
+                >
+                    <div 
+                        className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-105" 
+                        style={{ background: `${item.color}18`, border: `1px solid ${item.color}28` }}
+                    >
+                        <item.icon className="w-4 h-4" style={{ color: item.color }} />
+                    </div>
+                    <div>
+                        <p className="text-sm font-bold leading-tight" style={{ color: theme === 'dark' ? '' : '#111' }}>{item.name.split('–')[0].trim()}</p>
+                        <p className="text-xs mt-0.5" style={{ color: theme === 'dark' ? '#4a4a4a' : '#888' }}>{item.desc}</p>
+                    </div>
+                    <div className="ml-auto flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="w-1.5 h-1.5 rounded-full" style={{ background: item.color }} />
+                    </div>
+                </Link>
+            ))}
+        </div>
+    );
+};
 
 // ─── GTO dropdown content ─────────────────────────────────────────────────────
-const GTODropdown = ({ onClose }) => (
-    <div className="py-3 w-80">
-        <div className="px-5 pb-3 mb-1" style={{ borderBottom: '1px solid rgba(245,166,35,0.1)' }}>
-            <div className="flex items-center gap-2">
-                <Swords className="w-4 h-4" style={{ color: '#f5a623' }} />
-                <p className="text-xs font-black uppercase tracking-widest" style={{ color: '#f5a623' }}>GTO Exercises</p>
+const GTODropdown = ({ onClose }) => {
+    const { theme } = useTheme();
+    return (
+        <div className="py-3 w-80">
+            <div className="px-5 pb-3 mb-1" style={{ borderBottom: theme === 'dark' ? '1px solid rgba(245,166,35,0.1)' : '1px solid rgba(0,0,0,0.05)' }}>
+                <div className="flex items-center gap-2">
+                    <Swords className="w-4 h-4" style={{ color: '#f5a623' }} />
+                    <p className="text-xs font-black uppercase tracking-widest" style={{ color: '#f5a623' }}>GTO Exercises</p>
+                </div>
+                <p className="text-xs mt-1" style={{ color: theme === 'dark' ? '#4a4a4a' : '#888' }}>Select a Group Testing Officer task to simulate</p>
             </div>
-            <p className="text-xs mt-1" style={{ color: '#4a4a4a' }}>Select a Group Testing Officer task to simulate</p>
-        </div>
 
-        {GTO_TASKS.map((task, i) => (
-            <Link
-                key={task.key}
-                to={task.path}
-                onClick={onClose}
-                className="flex items-center gap-3 px-4 py-3 mx-2 rounded-xl transition-all group"
-                style={{ color: '#9ca3af' }}
-                onMouseEnter={e => {
-                    e.currentTarget.style.background = `${task.color}10`;
-                    e.currentTarget.style.color = '#fff';
-                }}
-                onMouseLeave={e => {
-                    e.currentTarget.style.background = 'transparent';
-                    e.currentTarget.style.color = '#9ca3af';
-                }}
-            >
-                <div
-                    className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-105"
-                    style={{ background: `${task.color}18`, border: `1px solid ${task.color}28` }}
+            {GTO_TASKS.map((task, i) => (
+                <Link
+                    key={task.key}
+                    to={task.path}
+                    onClick={onClose}
+                    className="flex items-center gap-3 px-4 py-3 mx-2 rounded-xl transition-all group"
+                    style={{ color: theme === 'dark' ? '#9ca3af' : '#4b5563' }}
+                    onMouseEnter={e => {
+                        e.currentTarget.style.background = theme === 'dark' ? `${task.color}10` : `${task.color}15`;
+                        e.currentTarget.style.color = theme === 'dark' ? '#fff' : '#111';
+                    }}
+                    onMouseLeave={e => {
+                        e.currentTarget.style.background = 'transparent';
+                        e.currentTarget.style.color = theme === 'dark' ? '#9ca3af' : '#4b5563';
+                    }}
                 >
-                    <task.icon className="w-4 h-4" style={{ color: task.color }} />
-                </div>
-                <div>
-                    <p className="text-sm font-bold leading-tight">{task.label}</p>
-                    <p className="text-xs mt-0.5" style={{ color: '#4a4a4a' }}>{task.sub}</p>
-                </div>
-                <div className="ml-auto flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <div className="w-1.5 h-1.5 rounded-full" style={{ background: task.color }} />
-                </div>
-            </Link>
-        ))}
-    </div>
-);
+                    <div
+                        className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-105"
+                        style={{ background: `${task.color}18`, border: `1px solid ${task.color}28` }}
+                    >
+                        <task.icon className="w-4 h-4" style={{ color: task.color }} />
+                    </div>
+                    <div>
+                        <p className="text-sm font-bold leading-tight" style={{ color: theme === 'dark' ? '' : '#111' }}>{task.label}</p>
+                        <p className="text-xs mt-0.5" style={{ color: theme === 'dark' ? '#4a4a4a' : '#888' }}>{task.sub}</p>
+                    </div>
+                    <div className="ml-auto flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="w-1.5 h-1.5 rounded-full" style={{ background: task.color }} />
+                    </div>
+                </Link>
+            ))}
+        </div>
+    );
+};
 // ─── Resources dropdown content ───────────────────────────────────────────────
-const ResourcesDropdown = ({ onClose }) => (
-    <div className="py-3 w-72">
-        <p className="px-5 py-2 text-xs font-black uppercase tracking-widest" style={{ color: 'rgba(245,166,35,0.35)' }}>Knowledge & Community</p>
-        {RESOURCE_ITEMS.map(item => (
-            <Link
-                key={item.path}
-                to={item.path}
-                onClick={onClose}
-                className="flex items-center gap-3 px-4 py-3 mx-2 rounded-xl transition-all group"
-                style={{ color: '#9ca3af' }}
-                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(245,166,35,0.06)'; e.currentTarget.style.color = '#fff'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#9ca3af'; }}
-            >
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: `${item.color}18` }}>
-                    <item.icon className="w-4 h-4" style={{ color: item.color }} />
+const ResourcesDropdown = ({ onClose }) => {
+    const { theme } = useTheme();
+    return (
+        <div className="py-3 w-80">
+            <div className="px-5 pb-3 mb-1" style={{ borderBottom: theme === 'dark' ? '1px solid rgba(245,166,35,0.1)' : '1px solid rgba(0,0,0,0.05)' }}>
+                <div className="flex items-center gap-2">
+                    <BookOpen className="w-4 h-4" style={{ color: '#f5a623' }} />
+                    <p className="text-xs font-black uppercase tracking-widest" style={{ color: '#f5a623' }}>Knowledge & Community</p>
                 </div>
-                <div>
-                    <p className="text-sm font-bold leading-tight">{item.name}</p>
-                    <p className="text-xs mt-0.5" style={{ color: '#4a4a4a' }}>{item.desc}</p>
-                </div>
-            </Link>
-        ))}
-    </div>
-);
+                <p className="text-xs mt-1" style={{ color: theme === 'dark' ? '#4a4a4a' : '#888' }}>Learn from guides and interact with the group</p>
+            </div>
+
+            {RESOURCE_ITEMS.map(item => (
+                <Link
+                    key={item.path}
+                    to={item.path}
+                    onClick={onClose}
+                    className="flex items-center gap-3 px-4 py-3 mx-2 rounded-xl transition-all group"
+                    style={{ color: theme === 'dark' ? '#9ca3af' : '#4b5563' }}
+                    onMouseEnter={e => { 
+                        e.currentTarget.style.background = theme === 'dark' ? 'rgba(245,166,35,0.06)' : 'rgba(245,166,35,0.08)'; 
+                        e.currentTarget.style.color = theme === 'dark' ? '#fff' : '#111'; 
+                    }}
+                    onMouseLeave={e => { 
+                        e.currentTarget.style.background = 'transparent'; 
+                        e.currentTarget.style.color = theme === 'dark' ? '#9ca3af' : '#4b5563'; 
+                    }}
+                >
+                    <div 
+                        className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-105" 
+                        style={{ background: `${item.color}18`, border: `1px solid ${item.color}28` }}
+                    >
+                        <item.icon className="w-4 h-4" style={{ color: item.color }} />
+                    </div>
+                    <div>
+                        <p className="text-sm font-bold leading-tight" style={{ color: theme === 'dark' ? '' : '#111' }}>{item.name}</p>
+                        <p className="text-xs mt-0.5" style={{ color: theme === 'dark' ? '#4a4a4a' : '#888' }}>{item.desc}</p>
+                    </div>
+                    <div className="ml-auto flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="w-1.5 h-1.5 rounded-full" style={{ background: item.color }} />
+                    </div>
+                </Link>
+            ))}
+        </div>
+    );
+};
 
 // ─── Main Navbar ──────────────────────────────────────────────────────────────
 const Navbar = () => {

@@ -18,6 +18,7 @@ from fastapi.security import OAuth2PasswordBearer
 from pathlib import Path
 from app.routers.auth import get_current_user
 from app import models
+from app.services import gemini_service
 import uuid
 import shutil
 import json
@@ -87,14 +88,30 @@ async def upload_image(
     filename = f"{session_id}_{uuid.uuid4().hex[:8]}{ext}"
     dest = UPLOADS_DIR / filename
 
+    # Read bytes once for both OCR and Saving
+    file_bytes = await file.read()
+
     with dest.open("wb") as f:
-        shutil.copyfileobj(file.file, f)
+        f.write(file_bytes)
+
+    # Perform OCR
+    extracted_text = ""
+    try:
+        extracted_text = gemini_service.extract_text_from_image(file_bytes)
+    except Exception as e:
+        print(f"Failed to perform OCR: {e}")
 
     image_url = f"/uploads/{filename}"
     session["image_url"] = image_url
+    session["extracted_text"] = extracted_text
 
     # Broadcast to all connected laptops
-    payload = json.dumps({"type": "image_uploaded", "image_url": image_url})
+    payload = json.dumps({
+        "type": "image_uploaded", 
+        "image_url": image_url,
+        "extracted_text": extracted_text
+    })
+    
     dead_sockets = []
     for ws in session["sockets"]:
         try:
@@ -105,7 +122,7 @@ async def upload_image(
     for ws in dead_sockets:
         session["sockets"].remove(ws)
 
-    return {"status": "ok", "image_url": image_url}
+    return {"status": "ok", "image_url": image_url, "extracted_text": extracted_text}
 
 
 # ─── WebSocket: laptop subscribes here ────────────────────────────────────────
