@@ -39,6 +39,8 @@ export default function Interview() {
     // Status
     const [piqData, setPiqData] = useState(null);
     const [sdtData, setSdtData] = useState(null);
+    const [manualPiq, setManualPiq] = useState('');
+    const [manualSdt, setManualSdt] = useState('');
     const [hasCheckedPrereqs, setHasCheckedPrereqs] = useState(false);
 
     // Media
@@ -155,8 +157,8 @@ export default function Interview() {
         setLoading(true);
         try {
             const res = await api.post('/interview/generate-questions', {
-                piq: piqData || {},
-                sdt: sdtData || {},
+                piq: piqData || { manual_entry: manualPiq },
+                sdt: sdtData || { manual_entry: manualSdt },
                 count: 10 // keeping it to 10 for reasonable length
             });
             setQuestions(res.data.questions);
@@ -253,6 +255,8 @@ export default function Interview() {
     if (step === 'gate') {
         if (loading || !hasCheckedPrereqs) return <div className="min-h-screen bg-black flex items-center justify-center text-white"><Loader2 className="animate-spin w-8 h-8 text-yellow-500"/></div>;
         
+        const canProceed = (piqData || manualPiq.trim().length > 0) && (sdtData || manualSdt.trim().length > 0);
+
         return (
             <div className="min-h-screen pt-24 px-6 bg-black text-white">
                 <div className="max-w-4xl mx-auto">
@@ -263,32 +267,60 @@ export default function Interview() {
 
                     <div className="grid md:grid-cols-2 gap-8 mb-12">
                         {/* Status Cards */}
-                        <div className={`p-6 rounded-2xl border ${piqData ? 'border-green-500/30 bg-green-500/10' : 'border-red-500/30 bg-red-500/10'}`}>
+                        <div className={`p-6 rounded-2xl border ${(piqData || manualPiq.trim()) ? 'border-green-500/30 bg-green-500/10' : 'border-red-500/30 bg-red-500/10'}`}>
                             <div className="flex justify-between items-center mb-2">
-                                <h3 className="font-bold text-lg">PIQ (Personal Information Questionnaire)</h3>
-                                {piqData ? <CheckCircle className="text-green-500 w-5 h-5"/> : <AlertCircle className="text-red-500 w-5 h-5" />}
+                                <h3 className="font-bold text-lg">PIQ (Personal Information)</h3>
+                                {(piqData || manualPiq.trim()) ? <CheckCircle className="text-green-500 w-5 h-5"/> : <AlertCircle className="text-red-500 w-5 h-5" />}
                             </div>
-                            <p className="text-sm text-gray-400 mb-4">Your background, achievements, experiences.</p>
-                            {!piqData && <Link to="/piq" className="text-red-400 font-bold text-sm hover:underline">Complete PIQ →</Link>}
+                            {piqData ? (
+                                <p className="text-sm text-green-400 mb-4">PIQ loaded from your profile.</p>
+                            ) : (
+                                <>
+                                    <p className="text-sm text-gray-400 mb-2">Paste or type your PIQ data below to proceed immediately:</p>
+                                    <textarea 
+                                        className="w-full bg-black border border-gray-800 rounded p-3 text-sm text-white mb-3 h-28 focus:outline-none focus:border-yellow-500 transition-colors resize-none"
+                                        placeholder="e.g. I am a B.Tech grad from Delhi, play football..."
+                                        value={manualPiq}
+                                        onChange={e => setManualPiq(e.target.value)}
+                                    />
+                                    <Link to="/piq" className="text-red-400 font-bold text-xs hover:underline flex items-center gap-1">
+                                        Or complete official PIQ form <ChevronRight className="w-3 h-3" />
+                                    </Link>
+                                </>
+                            )}
                         </div>
 
-                        <div className={`p-6 rounded-2xl border ${sdtData ? 'border-green-500/30 bg-green-500/10' : 'border-red-500/30 bg-red-500/10'}`}>
+                        <div className={`p-6 rounded-2xl border ${(sdtData || manualSdt.trim()) ? 'border-green-500/30 bg-green-500/10' : 'border-red-500/30 bg-red-500/10'}`}>
                             <div className="flex justify-between items-center mb-2">
-                                <h3 className="font-bold text-lg">SDT (Self Description Test)</h3>
-                                {sdtData ? <CheckCircle className="text-green-500 w-5 h-5"/> : <AlertCircle className="text-red-500 w-5 h-5" />}
+                                <h3 className="font-bold text-lg">SDT (Self Description)</h3>
+                                {(sdtData || manualSdt.trim()) ? <CheckCircle className="text-green-500 w-5 h-5"/> : <AlertCircle className="text-red-500 w-5 h-5" />}
                             </div>
-                            <p className="text-sm text-gray-400 mb-4">How you and others see you.</p>
-                            {!sdtData && <Link to="/sdt" className="text-red-400 font-bold text-sm hover:underline">Complete SDT →</Link>}
+                            {sdtData ? (
+                                <p className="text-sm text-green-400 mb-4">SDT loaded from your profile.</p>
+                            ) : (
+                                <>
+                                    <p className="text-sm text-gray-400 mb-2">Paste or type your SDT data below to proceed immediately:</p>
+                                    <textarea 
+                                        className="w-full bg-black border border-gray-800 rounded p-3 text-sm text-white mb-3 h-28 focus:outline-none focus:border-yellow-500 transition-colors resize-none"
+                                        placeholder="e.g. My parents think I am responsible..."
+                                        value={manualSdt}
+                                        onChange={e => setManualSdt(e.target.value)}
+                                    />
+                                    <Link to="/sdt" className="text-red-400 font-bold text-xs hover:underline flex items-center gap-1">
+                                        Or complete official SDT form <ChevronRight className="w-3 h-3" />
+                                    </Link>
+                                </>
+                            )}
                         </div>
                     </div>
 
                     <div className="text-center">
                         <button 
-                            disabled={!piqData || !sdtData}
+                            disabled={!canProceed}
                             onClick={generateQuestionsAndStart}
-                            className={`px-8 py-4 rounded-xl font-bold text-lg transition-all ${piqData && sdtData ? 'bg-yellow-500 text-black hover:bg-yellow-400' : 'bg-gray-800 text-gray-500 cursor-not-allowed'}`}
+                            className={`px-8 py-4 rounded-xl font-bold text-lg transition-all ${canProceed ? 'bg-yellow-500 text-black shadow-[0_0_20px_rgba(234,179,8,0.3)] hover:scale-105 active:scale-95' : 'bg-gray-800 text-gray-500 cursor-not-allowed'}`}
                         >
-                            {!piqData || !sdtData ? 'Complete Prerequisites First' : 'Generate Interview & Start →'}
+                            {!canProceed ? 'Provide Data to Proceed' : 'Generate Interview & Start →'}
                         </button>
                     </div>
                 </div>

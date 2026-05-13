@@ -1,25 +1,23 @@
-from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from pymongo import MongoClient
 from app.config import get_settings
 
 settings = get_settings()
 
-SQLALCHEMY_DATABASE_URL = settings.database_url
+try:
+    client = MongoClient(settings.mongodb_url)
+    db = client[settings.mongo_db_name]
+    print(f"✅ Connected to MongoDB Atlas: {settings.mongo_db_name}")
+except Exception as e:
+    print(f"❌ Failed to connect to MongoDB: {e}")
+    db = None
 
-# SQLite requires check_same_thread=False; Postgres does not.
-connect_args = {"check_same_thread": False} if SQLALCHEMY_DATABASE_URL.startswith("sqlite") else {}
-
-engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args=connect_args)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-Base = declarative_base()
-
-
-# Dependency to get DB session
+# Dependency to get DB
 def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+    yield db
+
+def format_mongo_doc(doc: dict) -> dict:
+    """Formats a MongoDB document for frontend/schemas (maps _id to string id)."""
+    if doc and "_id" in doc:
+        doc["id"] = str(doc.pop("_id"))
+    return doc
+

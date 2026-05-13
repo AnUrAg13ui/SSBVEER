@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from app.services import gemini_service
 from app.routers.auth import get_current_user
-from app import models
+
 
 router = APIRouter(prefix="/chatbot", tags=["chatbot"])
 
@@ -13,7 +13,7 @@ class ChatRequest(BaseModel):
 @router.post("/ask")
 async def ask_chatbot(
     request: ChatRequest,
-    current_user: models.User = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user)
 ):
     """
     Ask the AI Assistant about SSB preparation.

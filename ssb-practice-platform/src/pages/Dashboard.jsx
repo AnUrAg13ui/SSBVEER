@@ -40,16 +40,37 @@ const Dashboard = () => {
         api.get('/dashboard/stats').then(r => setStats(r.data)).catch(console.error);
     }, []);
 
+    const getPerformanceStatus = (score, total) => {
+        const totalCount = total || 25; // Default to 25 if unknown
+        const pct = (score / totalCount) * 100;
+        
+        if (pct >= 90) return { label: 'OUTSTANDING', color: '#22c55e' };
+        if (pct >= 75) return { label: 'EXCELLENT', color: '#10b981' };
+        if (pct >= 60) return { label: 'GOOD', color: '#eab308' };
+        if (pct >= 40) return { label: 'AVERAGE', color: '#f59e0b' };
+        return { label: 'POOR', color: '#ef4444' };
+    };
+
     const recentActivity = stats ? [
-        ...(stats.recent_tests || []).map(t => ({
-            type: `${t.category} Test`, score: `${t.score}/${t.total_questions || '?'}`,
-            time: t.completed_at ? new Date(t.completed_at).toLocaleDateString() : 'N/A',
-            status: (t.score || 0) > 14 ? 'Excellent' : 'Good'
-        })),
+        ...(stats.recent_tests || []).map(t => {
+            const displayTotal = t.total_questions || 25;
+            const isGraded = t.graded;
+            const scoreVal = isGraded ? (t.admin_score ?? t.score) : t.score;
+            const status = getPerformanceStatus(scoreVal, isGraded ? 100 : t.total_questions);
+            return {
+                type: `${t.category} Test`, 
+                score: isGraded ? `${t.admin_score}/100` : `${t.score}/${displayTotal}`,
+                time: t.completed_at ? new Date(t.completed_at).toLocaleDateString() : 'N/A',
+                status: isGraded ? 'GRADED' : status.label,
+                statusColor: isGraded ? '#22c55e' : status.color
+            };
+        }),
         ...(stats.recent_interviews || []).map(i => ({
-            type: 'Mock Interview', score: `${i.confidence_score}/10`,
+            type: 'Mock Interview', 
+            score: `${i.confidence_score}/100`,
             time: i.created_at ? new Date(i.created_at).toLocaleDateString() : 'N/A',
-            status: i.confidence_score > 7 ? 'Confident' : 'Developing'
+            status: i.confidence_score >= 80 ? 'CONFIDENT' : (i.confidence_score >= 60 ? 'GOOD' : (i.confidence_score >= 40 ? 'AVERAGE' : 'POOR')),
+            statusColor: i.confidence_score >= 80 ? '#22c55e' : (i.confidence_score >= 60 ? '#10b981' : (i.confidence_score >= 40 ? '#eab308' : '#ef4444'))
         }))
     ].slice(0, 6) : [];
 
@@ -62,7 +83,9 @@ const Dashboard = () => {
                     <div>
                         <div className="flex items-center gap-2 mb-3">
                             <Shield className="w-4 h-4" style={{ color: '#f5a623' }} />
-                            <span className="text-xs font-black tracking-widest uppercase" style={{ color: '#f5a623' }}>Command Centre</span>
+                            <span className="text-xs font-black tracking-widest uppercase" style={{ color: '#f5a623' }}>
+                                {stats?.user?.institute_name || user?.institute_name || 'Command Centre'}
+                            </span>
                         </div>
                         <h1 className="text-4xl md:text-5xl font-black text-white mb-1" style={{ fontFamily: 'Cinzel, serif' }}>DASHBOARD</h1>
                         <p className="text-sm" style={{ color: '#5a5a5a' }}>Welcome back, {user?.full_name || user?.username}</p>
@@ -171,7 +194,7 @@ const Dashboard = () => {
                                             </div>
                                             <div className="text-right">
                                                 <p className="text-sm font-black text-white">{act.score}</p>
-                                                <p className="text-xs font-black uppercase" style={{ color: act.status === 'Excellent' || act.status === 'Confident' ? '#22c55e' : '#eab308' }}>{act.status}</p>
+                                                <p className="text-xs font-black uppercase" style={{ color: act.statusColor }}>{act.status}</p>
                                             </div>
                                         </div>
                                     ))}

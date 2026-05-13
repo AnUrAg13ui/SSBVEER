@@ -3,7 +3,6 @@ from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 from app.services import gemini_service
 from app.routers.auth import get_current_user
-from app import models
 
 router = APIRouter(prefix="/interview", tags=["interview"])
 
@@ -41,7 +40,7 @@ class FollowUpRequest(BaseModel):
 @router.post("/question")
 def get_next_question(
     request: ContextualQuestionRequest,
-    current_user: models.User = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user)
 ):
     question_data = gemini_service.generate_contextual_question(
         prev_question=request.prev_question,
@@ -55,7 +54,7 @@ def get_next_question(
 @router.post("/analyze")
 def analyze_answer(
     request: AnalyzeRequest,
-    current_user: models.User = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user)
 ):
     analysis = gemini_service.analyze_answer_with_vision(
         question=request.question,
@@ -69,7 +68,7 @@ def analyze_answer(
 @router.post("/report")
 def generate_final_report(
     request: FinalReportRequest,
-    current_user: models.User = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user)
 ):
     report = gemini_service.generate_final_report(request.history)
     return report
@@ -78,7 +77,7 @@ def generate_final_report(
 @router.post("/generate-questions")
 def generate_personalized_questions(
     request: GenerateQuestionsRequest,
-    current_user: models.User = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user)
 ):
     """Generate personalized SSB interview questions based on PIQ + SDT profile."""
     questions = gemini_service.generate_profile_questions(
@@ -92,7 +91,7 @@ def generate_personalized_questions(
 @router.post("/follow-up")
 def get_follow_up(
     request: FollowUpRequest,
-    current_user: models.User = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user)
 ):
     """Generate IO-style follow-up / drill-down question for a given answer."""
     result = gemini_service.generate_followup_question(

@@ -178,33 +178,48 @@ const Progress = () => {
                                 </div>
                             ) : (
                                 <div className="divide-y" style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
-                                    {[
+                                     {[
                                         ...(history?.tests || []).map(t => ({ ...t, type: 'test' })),
                                         ...(history?.interviews || []).map(i => ({ ...i, type: 'interview' }))
                                     ].sort((a, b) => new Date(b.completed_at || b.created_at) - new Date(a.completed_at || a.created_at))
                                      .map((item, i) => {
                                         const c = item.type === 'test' ? '#f5a623' : '#22c55e';
                                         const date = new Date(item.completed_at || item.created_at);
+                                        const isGraded = item.type === 'test' && item.graded;
+
                                         return (
-                                            <div key={i} className="flex items-center justify-between px-6 py-4 transition-all hover:bg-white/[0.02]">
-                                                <div className="flex items-center gap-4">
-                                                    <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: `${c}10`, border: `1px solid ${c}20` }}>
-                                                        {item.type === 'test' ? <Target className="w-4 h-4" style={{ color: c }} /> : <BrainCircuit className="w-4 h-4" style={{ color: c }} />}
+                                            <div key={i} className="px-6 py-5 transition-all hover:bg-white/[0.02]">
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: `${c}10`, border: `1px solid ${c}20` }}>
+                                                            {item.type === 'test' ? <Target className="w-4 h-4" style={{ color: c }} /> : <BrainCircuit className="w-4 h-4" style={{ color: c }} />}
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-sm font-bold text-white">
+                                                                {item.type === 'test' ? (item.title || `${item.category} Practice`) : 'Mock Interview'}
+                                                                {isGraded && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded-md bg-green-500/10 text-green-500 font-black uppercase tracking-tighter border border-green-500/20">Graded by Admin</span>}
+                                                            </p>
+                                                            <p className="text-xs" style={{ color: '#4a4a4a' }}>{date.toLocaleDateString()} · {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                                                        </div>
                                                     </div>
-                                                    <div>
-                                                        <p className="text-sm font-bold text-white">{item.type === 'test' ? (item.title || `${item.category} Practice`) : 'Mock Interview'}</p>
-                                                        <p className="text-xs" style={{ color: '#4a4a4a' }}>{date.toLocaleDateString()} · {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                                                    <div className="text-right">
+                                                        <p className="text-base font-black" style={{ color: isGraded ? '#22c55e' : c }}>
+                                                            {item.type === 'test' ? (isGraded ? `${item.admin_score}/100` : `${item.score}%`) : `${item.confidence_score}/10`}
+                                                        </p>
+                                                        <p className="text-xs uppercase font-black" style={{ color: '#3a3a3a' }}>{item.type === 'test' ? (isGraded ? 'Review Score' : 'Score') : 'Confidence'}</p>
                                                     </div>
                                                 </div>
-                                                <div className="text-right">
-                                                    <p className="text-base font-black" style={{ color: c }}>
-                                                        {item.type === 'test' ? `${item.score}%` : `${item.confidence_score}/10`}
-                                                    </p>
-                                                    <p className="text-xs uppercase font-black" style={{ color: '#3a3a3a' }}>{item.type === 'test' ? 'Score' : 'Confidence'}</p>
-                                                </div>
+                                                
+                                                {isGraded && item.admin_feedback && (
+                                                    <div className="ml-13 mt-3 p-3 rounded-xl bg-white/[0.02] border border-white/5">
+                                                        <p className="text-[10px] font-black uppercase tracking-widest mb-1 text-green-500">Mentor Feedback</p>
+                                                        <p className="text-xs text-gray-400 leading-relaxed italic">"{item.admin_feedback}"</p>
+                                                    </div>
+                                                )}
                                             </div>
                                         );
                                     })}
+
                                 </div>
                             )}
                         </div>

@@ -1,0 +1,13 @@
+{
+    "venvPath": "/home/ttpl-rt-259/Desktop/SSB_Tekdi/SSBVEER",
+    "venv": "venv",
+    "executionEnvironments": [
+        {
+            "root": "Backend",
+            "extraPaths": [
+                "Backend",
+                "Backend/app"
+            ]
+        }
+    ]
+}

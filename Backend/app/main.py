@@ -2,9 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
-from app.routers import tests, interview, auth, dashboard, chatbot, mobile_session, piq, admin, lecturette, forum
-from app.database import engine, Base, SessionLocal
-from app import models
+from app.routers import tests, interview, auth, dashboard, chatbot, mobile_session, piq, admin, lecturette, forum, institutes, institute_admin
+from app.database import db
 from app.config import get_settings
 from pathlib import Path
 import logging
@@ -18,9 +17,10 @@ settings = get_settings()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # ── Startup ────────────────────────────────────────────────────────────
-    logger.info("Initializing database schema...")
-    models.Base.metadata.create_all(bind=engine)
-    logger.info("Database initialized successfully.")
+    if db is not None:
+        logger.info("Connected to MongoDB, proceeding with startup.")
+    else:
+        logger.error("Could not connect to MongoDB.")
 
     if settings.is_weak_secret:
         logger.critical(
@@ -35,11 +35,32 @@ async def lifespan(app: FastAPI):
         logger.critical("SECURITY WARNING: ADMIN_PASSWORD is not set in .env.")
 
     # Seed default tests if DB is empty (Issue 12 — moved out of request handler)
-    db = SessionLocal()
-    try:
-        tests.seed_tests(db)
-    finally:
-        db.close()
+    if db is not None:
+        try:
+            tests.seed_tests(db)
+        except Exception as e:
+            logger.error(f"Failed to seed tests: {e}")
+            
+        # Seed super admin
+        if settings.admin_username and settings.admin_password:
+            admin_user = db.users.find_one({"username": settings.admin_username})
+            if not admin_user:
+                # Need to hash password. We can import pwd_context from auth
+                from app.routers.auth import _hash_password
+                from datetime import datetime
+                db.users.insert_one({
+                    "username": settings.admin_username,
+                    "hashed_password": _hash_password(settings.admin_password) if not settings.admin_password.startswith("$2") else settings.admin_password,
+                    "is_active": True,
+                    "is_admin": True,
+                    "role": "super_admin",
+                    "created_at": datetime.utcnow()
+                })
+            else:
+                # Ensure they have super_admin role
+                if admin_user.get("role") != "super_admin":
+                    db.users.update_one({"_id": admin_user["_id"]}, {"$set": {"role": "super_admin", "is_admin": True}})
+
 
     yield
     # ── Shutdown (nothing to clean up yet) ──────────────────────────────────────
@@ -101,3 +122,5 @@ app.include_router(piq.router, prefix="/api")
 app.include_router(admin.router, prefix="/api")
 app.include_router(lecturette.router, prefix="/api")
 app.include_router(forum.router, prefix="/api")
+app.include_router(institutes.router, prefix="/api")
+app.include_router(institute_admin.router, prefix="/api")

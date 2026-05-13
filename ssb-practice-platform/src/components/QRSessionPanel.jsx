@@ -23,7 +23,7 @@ const UPLOAD_WINDOW_SECONDS = 30;
  * Props:
  *   category – 'PPDT' | 'WAT' | 'SRT'  (for labelling)
  */
-const QRSessionPanel = ({ category, onUploadSuccess }) => {
+const QRSessionPanel = ({ category, onUploadSuccess, onClose }) => {
     const [sessionId] = useState(() => crypto.randomUUID());
     const [uploadToken, setUploadToken] = useState(null);
     const [uploadedUrl, setUploadedUrl] = useState(null);
@@ -75,6 +75,11 @@ const QRSessionPanel = ({ category, onUploadSuccess }) => {
                     setUploadedUrl(fullUrl);
                     if (onUploadSuccess) onUploadSuccess(fullUrl, data.extracted_text || '');
                     closeSession();
+                    
+                    // Auto-close success panel after 2 seconds
+                    setTimeout(() => {
+                        if (onClose) onClose();
+                    }, 2000);
                 }
             } catch (_) {}
         };
@@ -94,6 +99,12 @@ const QRSessionPanel = ({ category, onUploadSuccess }) => {
                 if (prev <= 1) {
                     clearInterval(tick);
                     closeSession();
+                    
+                    // Auto-close expired panel after 1 second
+                    setTimeout(() => {
+                        if (onClose) onClose();
+                    }, 1000);
+                    
                     return 0;
                 }
                 return prev - 1;
@@ -101,7 +112,7 @@ const QRSessionPanel = ({ category, onUploadSuccess }) => {
         }, 1000);
 
         return () => clearInterval(tick);
-    }, [uploadedUrl]);
+    }, [uploadedUrl, onClose]);
 
     const isEnded = wsStatus === 'ended' && !uploadedUrl;
     const pct = countdown / UPLOAD_WINDOW_SECONDS;
@@ -109,120 +120,131 @@ const QRSessionPanel = ({ category, onUploadSuccess }) => {
     const circ = 2 * Math.PI * r;
 
     return (
-        <div className="fixed bottom-6 right-6 z-50">
+        <div className="fixed bottom-8 right-8 z-50">
             <AnimatePresence>
                 <motion.div
-                    initial={{ opacity: 0, y: 24, scale: 0.92 }}
+                    initial={{ opacity: 0, y: 40, scale: 0.9 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 24, scale: 0.92 }}
-                    transition={{ duration: 0.25 }}
-                    className="rounded-3xl overflow-hidden shadow-2xl"
+                    exit={{ opacity: 0, y: 40, scale: 0.9 }}
+                    transition={{ type: "spring", damping: 20, stiffness: 100 }}
+                    className="rounded-[32px] overflow-hidden"
                     style={{
-                        background: '#0e0e0e',
+                        background: 'rgba(15, 15, 15, 0.85)',
+                        backdropFilter: 'blur(20px)',
                         border: uploadedUrl
                             ? '1px solid rgba(34,197,94,0.3)'
                             : isEnded
-                                ? '1px solid rgba(255,255,255,0.08)'
-                                : '1px solid rgba(239,68,68,0.35)',
-                        width: '290px',
+                                ? '1px solid rgba(255,255,255,0.1)'
+                                : `1px solid ${catColor}40`,
+                        width: '320px',
                         boxShadow: uploadedUrl
-                            ? '0 20px 60px rgba(0,0,0,0.7)'
+                            ? '0 20px 80px rgba(0,0,0,0.8), 0 0 30px rgba(34,197,94,0.1)'
                             : isEnded
-                                ? '0 20px 60px rgba(0,0,0,0.5)'
-                                : '0 20px 60px rgba(0,0,0,0.7), 0 0 40px rgba(239,68,68,0.12)',
+                                ? '0 20px 80px rgba(0,0,0,0.6)'
+                                : `0 20px 80px rgba(0,0,0,0.8), 0 0 40px ${catColor}15`,
                     }}
                 >
-                    {/* Top bar */}
-                    <div className="h-1 w-full" style={{
+                    {/* Top Accent Line */}
+                    <div className="h-1.5 w-full" style={{
                         background: uploadedUrl
-                            ? 'linear-gradient(90deg, transparent, #22c55e, transparent)'
+                            ? 'linear-gradient(90deg, #22c55e, #10b981)'
                             : isEnded
-                                ? 'linear-gradient(90deg, transparent, #3a3a3a, transparent)'
-                                : 'linear-gradient(90deg, transparent, #ef4444, transparent)',
+                                ? '#333'
+                                : `linear-gradient(90deg, ${catColor}, #ff8c00)`,
                     }} />
 
-                    <div className="p-5">
-
-                        {/* ── SUCCESS ── */}
+                    <div className="p-7">
+                        {/* ── SUCCESS STATE ── */}
                         {uploadedUrl ? (
-                            <div className="text-center">
-                                <CheckCircle className="w-10 h-10 mx-auto mb-3" style={{ color: '#22c55e' }} />
-                                <p className="font-black text-white text-base mb-1">Image Received!</p>
-                                <p className="text-xs mb-4" style={{ color: '#5a5a5a' }}>
-                                    Your handwritten answer has been sent to the evaluator.
+                            <div className="text-center py-4">
+                                <motion.div initial={{ scale: 0.5 }} animate={{ scale: 1 }} className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4 border border-green-500/30">
+                                    <CheckCircle className="w-8 h-8 text-green-500" />
+                                </motion.div>
+                                <h3 className="font-black text-white text-lg mb-2" style={{ fontFamily: 'Cinzel, serif' }}>RECEIVED</h3>
+                                <p className="text-xs text-gray-500 mb-6 px-4 leading-relaxed">
+                                    Your handwritten story is safely uploaded for evaluation.
                                 </p>
-                                <img
-                                    src={uploadedUrl}
-                                    alt="Uploaded answer"
-                                    className="w-full rounded-2xl object-cover max-h-40"
-                                    style={{ border: '1px solid rgba(34,197,94,0.2)' }}
-                                />
+                                <div className="relative rounded-2xl overflow-hidden border border-white/10 group">
+                                    <img src={uploadedUrl} alt="Uploaded" className="w-full aspect-[4/3] object-cover" />
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                                </div>
                             </div>
 
-                        /* ── WINDOW CLOSED ── */
+                        /* ── EXPIRED STATE ── */
                         ) : isEnded ? (
-                            <div className="text-center py-3">
-                                <WifiOff className="w-9 h-9 mx-auto mb-3" style={{ color: '#3a3a3a' }} />
-                                <p className="font-black text-white text-sm mb-1">Upload Window Closed</p>
-                                <p className="text-xs" style={{ color: '#4a4a4a' }}>
-                                    The 30-second window has ended. Session disconnected.
+                            <div className="text-center py-6">
+                                <WifiOff className="w-12 h-12 mx-auto mb-4 text-gray-600" />
+                                <h3 className="font-black text-white text-lg mb-2" style={{ fontFamily: 'Cinzel, serif' }}>WINDOW CLOSED</h3>
+                                <p className="text-xs text-gray-500 leading-relaxed">
+                                    The 30-second window has expired. Please type your answer manually.
                                 </p>
                             </div>
 
-                        /* ── ACTIVE COUNTDOWN + QR ── */
+                        /* ── ACTIVE SCAN STATE ── */
                         ) : (
                             <>
-                                {/* Countdown ring + label */}
-                                <div className="flex items-center gap-4 mb-4">
+                                <div className="flex items-center gap-5 mb-8">
                                     <div className="relative flex-shrink-0">
-                                        <svg width={88} height={88} style={{ transform: 'rotate(-90deg)' }}>
-                                            <circle cx={44} cy={44} r={r} fill="none"
-                                                stroke="rgba(239,68,68,0.12)" strokeWidth="5" />
-                                            <circle cx={44} cy={44} r={r} fill="none"
-                                                stroke="#ef4444" strokeWidth="5"
-                                                strokeDasharray={circ}
-                                                strokeDashoffset={circ * (1 - pct)}
+                                        <svg width={72} height={72} className="-rotate-90">
+                                            <circle cx={36} cy={36} r={32} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="4" />
+                                            <motion.circle 
+                                                cx={36} cy={36} r={32} fill="none" stroke={catColor} strokeWidth="4"
+                                                strokeDasharray={201}
+                                                strokeDashoffset={201 * (1 - pct)}
                                                 strokeLinecap="round"
-                                                style={{ transition: 'stroke-dashoffset 0.9s linear' }}
                                             />
                                         </svg>
-                                        <span className="absolute inset-0 flex items-center justify-center font-mono font-black text-2xl"
-                                            style={{ color: '#ef4444' }}>{countdown}</span>
+                                        <div className="absolute inset-0 flex items-center justify-center">
+                                            <span className="font-black text-xl text-white font-mono">{countdown}</span>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <p className="text-xs font-black uppercase tracking-widest mb-1"
-                                            style={{ color: '#ef4444' }}>Upload Now!</p>
-                                        <p className="text-xs leading-relaxed" style={{ color: '#5a5a5a' }}>
-                                            Scan the QR code with your phone and upload your handwritten {category} answer.
-                                        </p>
+                                    <div className="min-w-0">
+                                        <h4 className="text-[10px] font-black uppercase tracking-[0.2em] mb-1" style={{ color: catColor }}>Mobile Upload</h4>
+                                        <p className="text-[11px] leading-tight text-gray-400 font-bold">Scan to submit handwritten story</p>
                                     </div>
                                 </div>
 
-                                {/* QR Code */}
-                                <div className="flex justify-center mb-3">
-                                    <div className="p-2.5 rounded-2xl" style={{ background: '#fff' }}>
+                                <div className="relative flex justify-center mb-8">
+                                    {/* QR Scanner Aesthetic */}
+                                    <div className="absolute -inset-4 border border-white/5 rounded-[40px] pointer-events-none" />
+                                    <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 rounded-tl-2xl pointer-events-none" style={{ borderColor: catColor }} />
+                                    <div className="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 rounded-tr-2xl pointer-events-none" style={{ borderColor: catColor }} />
+                                    <div className="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 rounded-bl-2xl pointer-events-none" style={{ borderColor: catColor }} />
+                                    <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 rounded-br-2xl pointer-events-none" style={{ borderColor: catColor }} />
+
+                                    <div className="p-3 bg-white rounded-2xl shadow-[0_0_40px_rgba(255,255,255,0.1)] group relative">
                                         <QRCodeSVG
                                             value={mobileUrl}
-                                            size={170}
-                                            bgColor="#ffffff"
-                                            fgColor="#000000"
-                                            level="M"
+                                            size={160}
+                                            level="H"
+                                            includeMargin={false}
+                                        />
+                                        {/* Scanning line animation */}
+                                        <motion.div 
+                                            animate={{ top: ['0%', '100%', '0%'] }}
+                                            transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+                                            className="absolute left-0 right-0 h-0.5 bg-amber-500/50 shadow-[0_0_15px_rgba(245,166,35,0.8)] z-10 pointer-events-none"
                                         />
                                     </div>
                                 </div>
 
-                                {/* WS status */}
-                                <div className="flex items-center justify-center gap-1.5 mb-2">
-                                    <span className="w-1.5 h-1.5 rounded-full"
-                                        style={{ background: wsStatus === 'open' ? '#22c55e' : '#f5a623' }} />
-                                    <span className="text-xs" style={{ color: '#4a4a4a' }}>
-                                        {wsStatus === 'open' ? 'Waiting for mobile upload…' : 'Connecting…'}
-                                    </span>
+                                <div className="flex flex-col items-center gap-3">
+                                    <div className="flex items-center gap-2">
+                                        <motion.div 
+                                            animate={{ opacity: [0.3, 1, 0.3] }}
+                                            transition={{ duration: 2, repeat: Infinity }}
+                                            className="w-2 h-2 rounded-full" 
+                                            style={{ background: wsStatus === 'open' ? '#22c55e' : '#f5a623' }} 
+                                        />
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">
+                                            {wsStatus === 'open' ? 'Ready for scan' : 'Connecting Link...'}
+                                        </span>
+                                    </div>
+                                    <div className="w-full h-px bg-white/5" />
+                                    <p className="text-[9px] text-gray-700 font-mono break-all text-center px-4">
+                                        ID: {sessionId.slice(0, 8)}...
+                                    </p>
                                 </div>
-
-                                <p className="text-center text-xs break-all" style={{ color: '#2a2a2a' }}>
-                                    {mobileUrl}
-                                </p>
                             </>
                         )}
                     </div>

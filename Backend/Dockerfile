@@ -21,8 +21,7 @@ RUN mkdir -p /app/data /app/uploads
 # Copy source
 COPY . .
 
-# Set explicit absolute database path
-ENV DATABASE_URL=sqlite:////app/data/sql_app.db
+
 
 EXPOSE 10000
 

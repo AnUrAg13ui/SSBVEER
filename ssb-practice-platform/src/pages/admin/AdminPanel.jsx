@@ -101,6 +101,147 @@ const GoldBtn = ({ onClick, children, disabled, color = '#f5a623', outline = fal
     </button>
 );
 
+
+
+// ──────────────────────────────────────────────────────────────────────────────
+// ─── Institutes Section (Enhanced) ────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────────────────
+const InstitutesSection = ({ toast }) => {
+    const [institutes, setInstitutes] = useState([]);
+    const [adding, setAdding] = useState(false);
+    const [creatingAdmin, setCreatingAdmin] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [form, setForm] = useState({ name: '' });
+    const [adminForm, setAdminForm] = useState({ institute_id: '', username: '', password: '', full_name: '', email: '' });
+    const [createdCreds, setCreatedCreds] = useState(null);
+
+    const load = async () => {
+        const r = await fetch(`${API}/institutes`, { headers: adminHeaders() });
+        if (r.ok) setInstitutes(await r.json());
+    };
+    useEffect(() => { load(); }, []);
+
+    const submitInstitute = async () => {
+        if (!form.name) return toast('Institute name required', 'error');
+        setLoading(true);
+        const r = await fetch(`${API}/institutes`, { method: 'POST', headers: adminHeaders(), body: JSON.stringify({ name: form.name }) });
+        if (r.ok) { toast('Institute created!', 'success'); setForm({ name: '' }); setAdding(false); load(); }
+        else toast('Failed', 'error');
+        setLoading(false);
+    };
+
+    const createAdmin = async () => {
+        if (!adminForm.institute_id || !adminForm.username || !adminForm.password) return toast('Institute, username & password required', 'error');
+        setLoading(true);
+        const r = await fetch(`${API}/institutes/${adminForm.institute_id}/create-admin`, {
+            method: 'POST', headers: adminHeaders(),
+            body: JSON.stringify({ username: adminForm.username, password: adminForm.password, full_name: adminForm.full_name, email: adminForm.email })
+        });
+        if (r.ok) {
+            const data = await r.json();
+            setCreatedCreds({ username: adminForm.username, password: adminForm.password, institute: data.institute_name, code: data.institute_code });
+            setAdminForm({ institute_id: '', username: '', password: '', full_name: '', email: '' });
+            toast('Admin created!', 'success'); load();
+        } else { const data = await r.json(); toast(data.detail || 'Failed', 'error'); }
+        setLoading(false);
+    };
+
+    const copyText = (text) => { navigator.clipboard.writeText(text); toast('Copied!', 'success'); };
+
+    return (
+        <div>
+            <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+                <span className="text-xs" style={{ color: '#5a5a5a' }}>{institutes.length} institute(s)</span>
+                <div className="flex gap-2">
+                    <GoldBtn onClick={() => { setAdding(a => !a); setCreatingAdmin(false); }}><Plus className="w-4 h-4" /> New Institute</GoldBtn>
+                    <GoldBtn onClick={() => { setCreatingAdmin(a => !a); setAdding(false); }} color="#8b5cf6"><Users className="w-4 h-4" /> Create Admin</GoldBtn>
+                </div>
+            </div>
+
+            <AnimatePresence>
+                {adding && (
+                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+                        className="mb-5 p-5 rounded-2xl" style={{ background: '#111', border: '1px solid rgba(245,166,35,0.15)' }}>
+                        <p className="text-xs font-black uppercase tracking-widest mb-4" style={{ color: '#f5a623' }}>Create Institute</p>
+                        <Input label="Institute Name" value={form.name} onChange={v => setForm({ name: v })} placeholder="e.g. Defenders Academy" />
+                        <div className="flex gap-3">
+                            <GoldBtn onClick={submitInstitute} disabled={loading}><Check className="w-4 h-4" /> {loading ? 'Saving...' : 'Create'}</GoldBtn>
+                            <GoldBtn onClick={() => setAdding(false)} outline><X className="w-4 h-4" /> Cancel</GoldBtn>
+                        </div>
+                    </motion.div>
+                )}
+                {creatingAdmin && (
+                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+                        className="mb-5 p-5 rounded-2xl" style={{ background: '#111', border: '1px solid rgba(139,92,246,0.2)' }}>
+                        <p className="text-xs font-black uppercase tracking-widest mb-4" style={{ color: '#8b5cf6' }}>Create Admin Account</p>
+                        <div className="mb-4">
+                            <label className="block text-xs font-black uppercase tracking-widest mb-1.5" style={{ color: '#5a5a5a' }}>Select Institute</label>
+                            <select value={adminForm.institute_id} onChange={e => setAdminForm(f => ({ ...f, institute_id: e.target.value }))}
+                                className="w-full px-4 py-3 rounded-xl text-sm outline-none" style={{ background: '#1a1a1a', border: '1.5px solid rgba(255,255,255,0.07)', color: '#e5e5e5' }}>
+                                <option value="">-- Select Institute --</option>
+                                {institutes.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
+                            </select>
+                        </div>
+                        <div className="grid sm:grid-cols-2 gap-4">
+                            <Input label="Username *" value={adminForm.username} onChange={v => setAdminForm(f => ({ ...f, username: v }))} placeholder="e.g. defenders_admin" />
+                            <Input label="Password *" value={adminForm.password} onChange={v => setAdminForm(f => ({ ...f, password: v }))} placeholder="Strong password" />
+                            <Input label="Full Name" value={adminForm.full_name} onChange={v => setAdminForm(f => ({ ...f, full_name: v }))} placeholder="Admin name" />
+                            <Input label="Email" value={adminForm.email} onChange={v => setAdminForm(f => ({ ...f, email: v }))} placeholder="admin@institute.com" />
+                        </div>
+                        <div className="flex gap-3 mt-2">
+                            <GoldBtn onClick={createAdmin} disabled={loading} color="#8b5cf6"><Check className="w-4 h-4" /> {loading ? 'Creating...' : 'Create Admin'}</GoldBtn>
+                            <GoldBtn onClick={() => { setCreatingAdmin(false); setCreatedCreds(null); }} outline><X className="w-4 h-4" /> Cancel</GoldBtn>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {createdCreds && (
+                <div className="mb-5 p-5 rounded-2xl" style={{ background: 'rgba(34,197,94,0.05)', border: '1px solid rgba(34,197,94,0.2)' }}>
+                    <div className="flex items-center justify-between mb-3">
+                        <p className="text-xs font-black uppercase tracking-widest" style={{ color: '#22c55e' }}>✓ Admin Credentials Created</p>
+                        <button onClick={() => setCreatedCreds(null)}><X className="w-4 h-4" style={{ color: '#5a5a5a' }} /></button>
+                    </div>
+                    <p className="text-xs mb-2" style={{ color: '#ef4444' }}>⚠ Copy these now — password cannot be retrieved later.</p>
+                    <div className="grid sm:grid-cols-2 gap-3">
+                        {[{ l: 'Institute', v: createdCreds.institute }, { l: 'Join Code', v: createdCreds.code }, { l: 'Username', v: createdCreds.username }, { l: 'Password', v: createdCreds.password }].map(item => (
+                            <div key={item.l} className="flex items-center justify-between p-3 rounded-xl" style={{ background: '#111', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                <div><p className="text-[10px] uppercase tracking-widest" style={{ color: '#5a5a5a' }}>{item.l}</p><p className="text-sm font-bold text-white">{item.v}</p></div>
+                                <button onClick={() => copyText(item.v)} className="text-xs px-2 py-1 rounded-lg" style={{ background: 'rgba(245,166,35,0.1)', color: '#f5a623' }}>Copy</button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            <div className="space-y-3">
+                {institutes.length === 0 && <p className="text-sm text-center py-6" style={{ color: '#3a3a3a' }}>No institutes yet.</p>}
+                {institutes.map(i => (
+                    <div key={i.id} className="p-4 rounded-xl" style={{ background: '#111', border: '1px solid rgba(255,255,255,0.05)' }}>
+                        <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                                <p className="text-sm font-black text-white">{i.name}</p>
+                                <p className="text-xs mt-0.5" style={{ color: '#5a5a5a' }}>Created: {new Date(i.created_at).toLocaleDateString()}</p>
+                                <div className="flex gap-2 mt-2 flex-wrap">
+                                    <span className="text-xs px-2 py-0.5 rounded-full font-bold" style={{ background: 'rgba(34,197,94,0.1)', color: '#22c55e' }}>{i.student_count || 0} students</span>
+                                    <span className="text-xs px-2 py-0.5 rounded-full font-bold" style={{ background: 'rgba(59,130,246,0.1)', color: '#3b82f6' }}>{i.test_count || 0} tests</span>
+                                    {i.admin_names?.length > 0 && <span className="text-xs px-2 py-0.5 rounded-full font-bold" style={{ background: 'rgba(139,92,246,0.1)', color: '#8b5cf6' }}>Admin: {i.admin_names.join(', ')}</span>}
+                                </div>
+                            </div>
+                            <div className="text-right flex-shrink-0 ml-4 cursor-pointer" onClick={() => copyText(i.code)} title="Click to copy">
+                                <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#5a5a5a' }}>Join Code</span>
+                                <p className="text-lg font-black tracking-widest" style={{ color: '#f5a623' }}>{i.code}</p>
+                            </div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
+
+
 // ──────────────────────────────────────────────────────────────────────────────
 // ─── GPE Section ─────────────────────────────────────────────────────────────
 // ──────────────────────────────────────────────────────────────────────────────
@@ -736,7 +877,11 @@ const AdminPanel = () => {
                     <h2 className="text-2xl font-black text-white mt-1" style={{ fontFamily: 'Cinzel, serif' }}>Platform Content</h2>
                 </div>
 
-                <Section title="AI Content Generation" icon={Cpu} color="#a855f7" defaultOpen>
+                <Section title="Institutes & Admins" icon={Shield} color="#3b82f6" defaultOpen>
+                    <InstitutesSection toast={showToast} />
+                </Section>
+
+                <Section title="AI Content Generation" icon={Cpu} color="#a855f7">
                     <AIGenerationSection toast={showToast} />
                 </Section>
 

@@ -17,7 +17,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect, UploadFile, File,
 from fastapi.security import OAuth2PasswordBearer
 from pathlib import Path
 from app.routers.auth import get_current_user
-from app import models
+
 from app.services import gemini_service
 import uuid
 import shutil
@@ -43,7 +43,7 @@ def _get_or_create(session_id: str) -> dict:
 @router.post("/register/{session_id}")
 def register_session(
     session_id: str,
-    current_user: models.User = Depends(get_current_user),
+    current_user: dict = Depends(get_current_user),
 ):
     """
     Called by the laptop frontend after generating a session_id.

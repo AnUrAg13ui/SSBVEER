@@ -26,6 +26,8 @@ import CommandTask from './pages/tests/CommandTask';
 import GPESimulator from './pages/tests/GPESimulator';
 import AdminLogin from './pages/admin/AdminLogin';
 import AdminPanel from './pages/admin/AdminPanel';
+import InstituteAdminDashboard from './pages/admin/InstituteAdminDashboard';
+import InstituteAdminLogin from './pages/admin/InstituteAdminLogin';
 import SDTTest from './pages/tests/SDTTest';
 import Lecturette from './pages/tests/Lecturette';
 import { Shield } from 'lucide-react';
@@ -113,6 +115,8 @@ const AnimatedRoutes = () => {
                 <Route path="/sdt" element={<ProtectedRoute><PageWrapper><SDTTest /></PageWrapper></ProtectedRoute>} />
                 <Route path="/lecturette" element={<ProtectedRoute><PageWrapper><Lecturette /></PageWrapper></ProtectedRoute>} />
                 <Route path="/piq" element={<ProtectedRoute><PageWrapper><PIQForm /></PageWrapper></ProtectedRoute>} />
+                <Route path="/institute-login" element={<PageWrapper><InstituteAdminLogin /></PageWrapper>} />
+                <Route path="/institute-dashboard" element={<ProtectedRoute><PageWrapper><InstituteAdminDashboard /></PageWrapper></ProtectedRoute>} />
                 <Route path="*" element={<PageWrapper><NotFound /></PageWrapper>} />
               </Routes>
             </AnimatePresence>

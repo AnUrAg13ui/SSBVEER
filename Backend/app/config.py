@@ -11,7 +11,8 @@ class Settings(BaseSettings):
     """
 
     # ── Database & Redis ─────────────────────────────────────────────
-    database_url: str = "sqlite:///./data/sql_app.db"
+    mongodb_url: str = ""
+    mongo_db_name: str = "ssbveer_db"
     redis_url: str = "redis://localhost:6379/0"
 
     # ── Security ─────────────────────────────────────────────────────
@@ -57,7 +58,7 @@ def get_settings() -> Settings:
     settings = Settings()
 
     print("✅ SETTINGS LOADED")
-    print("DB:", settings.database_url)
+    print("DB:", settings.mongodb_url)
     print("CORS:", settings.allowed_origins_list)
     print("Google Client ID:", settings.google_client_id)
 

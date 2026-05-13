@@ -1,11 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
 from typing import Optional
 from pydantic import BaseModel
-import json
+from datetime import datetime, timezone
 
-from app.database import get_db
-from app import models
+from app.database import get_db, format_mongo_doc
 from app.routers.auth import get_current_user
 
 router = APIRouter(prefix="/piq", tags=["piq"])
@@ -80,70 +78,39 @@ class PIQFormSchema(BaseModel):
     self_description: Optional[str] = None
 
 
-def _form_to_dict(form: models.PIQForm) -> dict:
-    """Convert DB model to response dict, parsing JSON fields."""
-    d = {c.name: getattr(form, c.name) for c in form.__table__.columns}
-    for field in ["education_records", "family_members_in_defence"]:
-        val = d.get(field)
-        if val and isinstance(val, str):
-            try:
-                d[field] = json.loads(val)
-            except Exception:
-                d[field] = []
-    return d
-
-
 # ─── GET current user's PIQ ─────────────────────────────────────────────────
 @router.get("/me")
 def get_piq(
-    current_user: models.User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+    db = Depends(get_db),
 ):
-    form = db.query(models.PIQForm).filter(models.PIQForm.user_id == current_user.id).first()
+    form = db.piq_forms.find_one({"user_id": current_user["id"]})
     if not form:
         return {"exists": False, "data": {}}
-    return {"exists": True, "data": _form_to_dict(form)}
+    form["id"] = str(form.pop("_id"))
+    return {"exists": True, "data": form}
 
 
 # ─── SAVE (upsert) PIQ ──────────────────────────────────────────────────────
 @router.post("/save")
 def save_piq(
     payload: PIQFormSchema,
-    current_user: models.User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+    db = Depends(get_db),
 ):
-    form = db.query(models.PIQForm).filter(models.PIQForm.user_id == current_user.id).first()
+    update_dict = payload.model_dump(exclude_unset=True)
+    update_dict["updated_at"] = datetime.utcnow()
 
-    if not form:
-        form = models.PIQForm(user_id=current_user.id)
-        db.add(form)
+    res = db.piq_forms.update_one(
+        {"user_id": current_user["id"]},
+        {"$set": update_dict, "$setOnInsert": {"created_at": datetime.utcnow()}},
+        upsert=True
+    )
 
-    # Map all fields
-    simple_fields = [
-        "full_name", "fathers_name", "mothers_name", "date_of_birth", "place_of_birth",
-        "nationality", "religion", "category", "marital_status", "aadhar_number",
-        "mobile", "email", "visible_identification",
-        "permanent_address", "permanent_city", "permanent_state", "permanent_pin",
-        "current_address", "current_city", "current_state", "current_pin", "years_at_current",
-        "fathers_occupation", "fathers_service", "mothers_occupation",
-        "num_brothers", "num_sisters", "family_background_extra",
-        "height_cm", "weight_kg", "chest_cm",
-        "vision_left", "vision_right", "colour_vision", "hearing",
-        "sports_hobbies", "extra_curricular", "achievements",
-        "service_preference_1", "service_preference_2", "service_preference_3",
-        "why_join_army", "self_description",
-    ]
-    for f in simple_fields:
-        val = getattr(payload, f)
-        if val is not None:
-            setattr(form, f, val)
-
-    # JSON fields
-    if payload.education_records is not None:
-        form.education_records = json.dumps(payload.education_records)
-    if payload.family_members_in_defence is not None:
-        form.family_members_in_defence = json.dumps(payload.family_members_in_defence)
-
-    db.commit()
-    db.refresh(form)
-    return {"success": True, "data": _form_to_dict(form)}
+    form = db.piq_forms.find_one({"user_id": current_user["id"]})
+    if form:
+        form["id"] = str(form.pop("_id"))
+    else:
+        form = {}
+        
+    return {"success": True, "data": form}

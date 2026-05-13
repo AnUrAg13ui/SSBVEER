@@ -53,7 +53,7 @@ const SECTIONS = [
         placeholder: 'Describe your honest self-assessment - your strengths, weaknesses, values, beliefs, what drives you, your personality traits, how you handle challenges...',
         recommended: '100-200 words',
         icon: Compass,
-        color: '#8b5cf6',
+        color: '#f5a623',
         tip: 'This is the most critical section. Show genuine self-awareness — acknowledge real weaknesses.',
     },
     {
@@ -64,7 +64,7 @@ const SECTIONS = [
         placeholder: 'Describe the qualities you aspire to develop - specific skills, personality traits, habits, or capabilities you want to improve and how you plan to work on them...',
         recommended: '100-200 words',
         icon: Sparkles,
-        color: '#06b6d4',
+        color: '#f5a623',
         tip: 'Link your improvement areas to the weaknesses mentioned earlier. Show a concrete plan, not just wishes.',
     },
 ];
@@ -277,8 +277,8 @@ const SDTTest = () => {
         <div ref={topRef} className="min-h-screen flex flex-col items-center justify-center px-4" style={{ background: '#000' }}>
             <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-center max-w-sm">
                 <div className="w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-6 pulse-glow"
-                    style={{ background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.3)' }}>
-                    <Brain className="w-9 h-9" style={{ color: '#8b5cf6' }} />
+                    style={{ background: 'rgba(245,166,35,0.15)', border: '1px solid rgba(245,166,35,0.3)' }}>
+                    <Brain className="w-9 h-9" style={{ color: '#f5a623' }} />
                 </div>
                 <h2 className="text-2xl font-black text-white mb-3" style={{ fontFamily: 'Cinzel, serif' }}>Analysing Your SDT</h2>
                 <p className="text-sm leading-relaxed mb-6" style={{ color: '#5a5a5a' }}>
@@ -288,7 +288,7 @@ const SDTTest = () => {
                     {['Reading all 5 perspectives...', 'Cross-referencing consistency...', 'Scoring 8 OLQs...', 'Writing psychologist report...'].map((step, i) => (
                         <motion.div key={i} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.6 }}
                             className="flex items-center gap-2 text-xs" style={{ color: '#4a4a4a' }}>
-                            <motion.div className="w-1.5 h-1.5 rounded-full" style={{ background: '#8b5cf6' }}
+                            <motion.div className="w-1.5 h-1.5 rounded-full" style={{ background: '#f5a623' }}
                                 animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1.2, delay: i * 0.6, repeat: Infinity }} />
                             {step}
                         </motion.div>
@@ -331,10 +331,10 @@ const SDTTest = () => {
                         </div>
 
                         {/* Psychologist Summary */}
-                        <div className="p-6 rounded-2xl mb-5" style={{ background: '#0d0d0d', border: '1px solid rgba(139,92,246,0.15)' }}>
+                        <div className="p-6 rounded-2xl mb-5" style={{ background: '#0d0d0d', border: '1px solid rgba(245,166,35,0.15)' }}>
                             <div className="flex items-center gap-2 mb-4">
-                                <Brain className="w-4 h-4" style={{ color: '#8b5cf6' }} />
-                                <p className="text-xs font-black uppercase tracking-widest" style={{ color: '#8b5cf6' }}>Psychologist Summary</p>
+                                <Brain className="w-4 h-4" style={{ color: '#f5a623' }} />
+                                <p className="text-xs font-black uppercase tracking-widest" style={{ color: '#f5a623' }}>Psychologist Summary</p>
                             </div>
                             <p className="text-sm leading-7 whitespace-pre-line" style={{ color: '#c5c5c5' }}>{result.psychologist_summary}</p>
                         </div>
@@ -386,14 +386,14 @@ const SDTTest = () => {
                         </div>
 
                         {/* Tips */}
-                        <div className="p-5 rounded-2xl mb-8" style={{ background: 'rgba(6,182,212,0.04)', border: '1px solid rgba(6,182,212,0.12)' }}>
+                        <div className="p-5 rounded-2xl mb-8" style={{ background: 'rgba(245,166,35,0.04)', border: '1px solid rgba(245,166,35,0.12)' }}>
                             <div className="flex items-center gap-2 mb-3">
-                                <Lightbulb className="w-4 h-4" style={{ color: '#06b6d4' }} />
-                                <p className="text-xs font-black uppercase tracking-widest" style={{ color: '#06b6d4' }}>Tips to Improve Your SDT</p>
+                                <Lightbulb className="w-4 h-4" style={{ color: '#f5a623' }} />
+                                <p className="text-xs font-black uppercase tracking-widest" style={{ color: '#f5a623' }}>Tips to Improve Your SDT</p>
                             </div>
                             {(result.tips || []).map((tip, i) => (
                                 <p key={i} className="text-sm mb-2 flex items-start gap-2" style={{ color: '#9a9a9a' }}>
-                                    <span style={{ color: '#06b6d4', marginTop: 2, flexShrink: 0 }}>→</span> {tip}
+                                    <span style={{ color: '#f5a623', marginTop: 2, flexShrink: 0 }}>→</span> {tip}
                                 </p>
                             ))}
                         </div>
@@ -447,20 +447,20 @@ const SDTTest = () => {
                             <ChevronLeft className="w-5 h-5" />
                         </Link>
                         <div>
-                            <p className="text-xs font-black uppercase tracking-widest" style={{ color: '#8b5cf6' }}>GTO · Psychological Battery</p>
+                            <p className="text-xs font-black uppercase tracking-widest" style={{ color: '#f5a623' }}>GTO · Psychological Battery</p>
                             <h1 className="text-2xl font-black text-white" style={{ fontFamily: 'Cinzel, serif' }}>Self Description Test</h1>
                         </div>
                     </div>
 
                     {/* Instructions banner */}
-                    <div className="p-5 rounded-2xl mb-6" style={{ background: 'rgba(139,92,246,0.05)', border: '1px solid rgba(139,92,246,0.15)' }}>
-                        <p className="text-xs font-black uppercase tracking-widest mb-2" style={{ color: '#8b5cf6' }}>Instructions</p>
+                    <div className="p-5 rounded-2xl mb-6" style={{ background: 'rgba(245,166,35,0.05)', border: '1px solid rgba(245,166,35,0.15)' }}>
+                        <p className="text-xs font-black uppercase tracking-widest mb-2" style={{ color: '#f5a623' }}>Instructions</p>
                         <p className="text-sm leading-relaxed" style={{ color: '#7a7a7a' }}>
                             Describe yourself from <strong className="text-white">5 perspectives</strong>. Take your time — this is <strong className="text-white">not timed</strong>.
                             Be honest and balanced. The SSB psychologist looks for self-awareness, consistency, and authenticity across all sections.
                         </p>
                         <div className="mt-3 flex items-center gap-4 flex-wrap">
-                            <span className="text-xs font-bold" style={{ color: '#8b5cf6' }}>
+                            <span className="text-xs font-bold" style={{ color: '#f5a623' }}>
                                 ✦ Fill at least {MIN_WORDS} words per section
                             </span>
                             <span className="text-xs font-bold" style={{ color: '#4a4a4a' }}>
@@ -479,7 +479,7 @@ const SDTTest = () => {
                         </div>
                         <div className="h-1.5 rounded-full" style={{ background: '#1a1a1a' }}>
                             <motion.div className="h-1.5 rounded-full transition-all"
-                                style={{ width: `${(sectionsComplete / SECTIONS.length) * 100}%`, background: 'linear-gradient(90deg, #8b5cf6, #06b6d4)' }} />
+                                style={{ width: `${(sectionsComplete / SECTIONS.length) * 100}%`, background: 'linear-gradient(90deg, #f5a623, #e8963d)' }} />
                         </div>
                     </div>
 

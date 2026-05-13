@@ -30,7 +30,7 @@ const InputField = ({ label, icon: Icon, type = 'text', name, value, onChange, p
 
 const Signup = () => {
     const [formData, setFormData] = useState({
-        username: '', email: '', full_name: '', password: '', confirm_password: ''
+        username: '', email: '', full_name: '', password: '', confirm_password: '', institute_code: ''
     });
     const [showPass, setShowPass] = useState(false);
     const [error, setError] = useState('');
@@ -90,7 +90,13 @@ const Signup = () => {
 
         setLoading(true);
         try {
-            await signup({ username: formData.username.trim(), email: formData.email, full_name: formData.full_name, password: formData.password });
+            await signup({ 
+                username: formData.username.trim(), 
+                email: formData.email, 
+                full_name: formData.full_name, 
+                password: formData.password,
+                institute_code: formData.institute_code ? formData.institute_code.trim().toUpperCase() : null
+            });
             toast('Account created! Welcome to SSBPrep 🎖️', 'success', 3000);
             navigate('/dashboard');
         } catch (err) {
@@ -218,6 +224,8 @@ const Signup = () => {
                         </div>
 
                         <InputField label="Confirm Password" icon={Lock} type="password" name="confirm_password" value={formData.confirm_password} onChange={handleChange} placeholder="••••••••" />
+                        <InputField label="Institute Code (Optional)" icon={ShieldCheck} name="institute_code" value={formData.institute_code} onChange={handleChange} placeholder="e.g. DEF123" />
+
 
                         <button
                             type="submit"

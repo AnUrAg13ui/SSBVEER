@@ -268,6 +268,7 @@ const Navbar = () => {
     const [activeDropdown, setActiveDropdown] = useState(null);
     const [mobileSection, setMobileSection] = useState(null);
     const [profileOpen, setProfileOpen] = useState(false);
+    const hasAdminToken = sessionStorage.getItem('admin_token');
 
     const { isAuth, logout, user } = useAuth();
     const { theme, toggleTheme } = useTheme();
@@ -395,7 +396,17 @@ const Navbar = () => {
                             <Link to="/dashboard" className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all" style={{ background: 'rgba(245,166,35,0.1)', border: '1px solid rgba(245,166,35,0.25)', color: '#f5a623' }}>
                                 <LayoutDashboard className="w-4 h-4" /> Dashboard
                             </Link>
+                            { (user?.role === 'institute_admin' || user?.role === 'super_admin') && (
+                                <Link to="/institute-dashboard" className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all" style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.25)', color: '#22c55e' }}>
+                                    <Shield className="w-4 h-4" /> Institute Admin
+                                </Link>
+                            )}
                             
+                            { hasAdminToken && (
+                                <Link to="/admin/panel" className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all" style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', color: '#ef4444' }}>
+                                    <Shield className="w-4 h-4" /> Super Admin
+                                </Link>
+                            )}
                             {/* Profile Dropdown Trigger */}
                             <div className="relative">
                                 <button 
@@ -575,6 +586,16 @@ const Navbar = () => {
                                         <Link to="/dashboard" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-4 py-3.5 rounded-xl font-bold text-sm text-center justify-center" style={{ background: 'rgba(245,166,35,0.1)', border: '1px solid rgba(245,166,35,0.2)', color: '#f5a623' }}>
                                             <LayoutDashboard className="w-4 h-4" /> Dashboard
                                         </Link>
+                                        { (user?.role === 'institute_admin' || user?.role === 'super_admin') && (
+                                            <Link to="/institute-dashboard" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-4 py-3.5 rounded-xl font-bold text-sm text-center justify-center" style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.2)', color: '#22c55e' }}>
+                                                <Shield className="w-4 h-4" /> Institute Admin
+                                            </Link>
+                                        )}
+                                        { hasAdminToken && (
+                                            <Link to="/admin/panel" onClick={() => setIsOpen(false)} className="flex items-center gap-3 px-4 py-3.5 rounded-xl font-bold text-sm text-center justify-center" style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: '#ef4444' }}>
+                                                <Shield className="w-4 h-4" /> Super Admin
+                                            </Link>
+                                        )}
                                         <button onClick={logout} className="w-full py-3.5 rounded-xl font-bold text-sm" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.18)', color: '#ef4444' }}>Sign Out Mission</button>
                                     </div>
                                 ) : (

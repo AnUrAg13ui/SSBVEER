@@ -1,13 +1,14 @@
-import { useState, useEffect, useRef } from 'react';
+    import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Clock, ChevronRight, ChevronLeft, Loader2,
     AlertCircle, CheckCircle, Shield, Target, Upload,
     FileText, Zap, BrainCircuit, ImagePlus, PenLine, X,
-    Eye, Smartphone, BookOpen, Lightbulb
+    Eye, Smartphone, BookOpen, Lightbulb, Maximize2
 } from 'lucide-react';
 import api from '../../api';
+import { useToast } from '../../context/ToastContext';
 import QRSessionPanel from '../../components/QRSessionPanel';
 
 // ─── Per-category test guides ─────────────────────────────────────────────────
@@ -47,7 +48,7 @@ const TEST_GUIDES = {
         title: 'Situation Reaction Test',
         timeline: [
             { icon: Clock, time: '30 sec / situation', label: 'Per Situation', desc: 'React quickly — describe your immediate action.' },
-        ],
+        ],  
         tips: [
             'Begin with what YOU personally would do — use "I will..."',
             'Be action-oriented, decisive, and courageous.',
@@ -480,6 +481,7 @@ const TestResult = ({ test, responses, onRestart, evaluation, evaluating }) => {
 const TestPlayer = () => {
     const { id } = useParams();
     const navigate = useNavigate();
+    const toast = useToast();
     const [test, setTest] = useState(null);
     const [loading, setLoading] = useState(true);
     const [currentIdx, setCurrentIdx] = useState(0);
@@ -500,6 +502,11 @@ const TestPlayer = () => {
     const [evaluating, setEvaluating] = useState(false);
     const [watKey, setWatKey] = useState(0); // forces WATTimer remount on advance
     const [ppdtUploadWindow, setPpdtUploadWindow] = useState(false); // triggers 30s upload window after PPDT writing
+    const [markedForReview, setMarkedForReview] = useState(new Set());
+    const [showSubmitModal, setShowSubmitModal] = useState(false);
+    const [showExitModal, setShowExitModal] = useState(false);
+    const [showFullScreen, setShowFullScreen] = useState(false);
+    const [showPPDTConfirm, setShowPPDTConfirm] = useState(false);
 
     useEffect(() => { fetchTest(); }, [id]);
 
@@ -534,9 +541,25 @@ const TestPlayer = () => {
             if (cat === 'WAT' || cat === 'SRT') {
                 setPhase('upload_prompt'); // show handwritten upload screen
             } else {
-                finish();
+                setShowSubmitModal(true);
             }
         }
+    };
+
+    const prev = () => {
+        if (currentIdx > 0) {
+            setCurrentIdx(idx => idx - 1);
+            setWatKey(k => k + 1);
+        }
+    };
+
+    const toggleMarkForReview = () => {
+        setMarkedForReview(prev => {
+            const next = new Set(prev);
+            if (next.has(currentIdx)) next.delete(currentIdx);
+            else next.add(currentIdx);
+            return next;
+        });
     };
 
     const finish = async (handwrittenImage = null) => {
@@ -624,8 +647,8 @@ const TestPlayer = () => {
     const showQR = ['PPDT', 'WAT', 'SRT'].includes(category);
 
     return (
-        <div className="min-h-screen pt-24 pb-20 px-6" style={{ background: '#000' }}>
-            <div className="max-w-4xl mx-auto flex flex-col" style={{ minHeight: 'calc(100vh - 160px)' }}>
+        <div className="min-h-screen pt-24 pb-20 px-6 flex justify-center" style={{ background: '#000' }}>
+            <div className="w-full max-w-[1200px] flex flex-col lg:flex-row gap-10" style={{ minHeight: 'calc(100vh - 160px)' }}>
 
                 {/* QR Upload Window — only mounts for PPDT after writing phase ends */}
                 {category === 'PPDT' && ppdtUploadWindow && (
@@ -637,13 +660,82 @@ const TestPlayer = () => {
                                 setResponses(prev => ({ ...prev, [qId]: text }));
                             }
                         }}
+                        onClose={() => setPpdtUploadWindow(false)}
                     />
                 )}
-                {/* ── Header ───────────────────────────────────────────────── */}
-                <div className="flex items-center justify-between mb-8">
+
+                {/* ── Exit Confirmation Modal ────────────────────────────── */}
+                <AnimatePresence>
+                    {showExitModal && (
+                        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm">
+                            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
+                                className="w-full max-w-sm rounded-3xl p-8 text-center" style={{ background: '#0e0e0e', border: '1px solid rgba(239,68,68,0.2)', boxShadow: '0 0 60px rgba(239,68,68,0.06)' }}>
+                                <AlertCircle className="w-12 h-12 mx-auto mb-4 text-red-500" />
+                                <h3 className="text-xl font-black text-white mb-2" style={{ fontFamily: 'Cinzel, serif' }}>EXIT TEST?</h3>
+                                <p className="text-sm text-gray-500 mb-8">Your progress will be lost. Are you sure you want to quit this session?</p>
+                                <div className="flex gap-3">
+                                    <button onClick={() => setShowExitModal(false)} className="flex-1 py-3.5 rounded-xl font-bold text-sm bg-white/5 border border-white/10 text-white">Cancel</button>
+                                    <button onClick={() => navigate('/tests')} className="flex-1 py-3.5 rounded-xl font-bold text-sm bg-red-500 text-white shadow-lg shadow-red-500/20">Exit Session</button>
+                                </div>
+                            </motion.div>
+                        </div>
+                    )}
+                </AnimatePresence>
+
+                {/* ── Submit Confirmation Modal ──────────────────────────── */}
+                <AnimatePresence>
+                    {showSubmitModal && (
+                        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm">
+                            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
+                                className="w-full max-w-sm rounded-3xl p-8 text-center" style={{ background: '#0e0e0e', border: '1px solid rgba(34,197,94,0.2)', boxShadow: '0 0 60px rgba(34,197,94,0.06)' }}>
+                                <CheckCircle className="w-12 h-12 mx-auto mb-4 text-green-500" />
+                                <h3 className="text-xl font-black text-white mb-2" style={{ fontFamily: 'Cinzel, serif' }}>FINISH TEST?</h3>
+                                <p className="text-sm text-gray-500 mb-8">You have answered {Object.keys(responses).length} of {test.questions.length} questions. Submit for final evaluation?</p>
+                                <div className="flex gap-3">
+                                    <button onClick={() => setShowSubmitModal(false)} className="flex-1 py-3.5 rounded-xl font-bold text-sm bg-white/5 border border-white/10 text-white">Review</button>
+                                    <button onClick={() => { setShowSubmitModal(false); finish(); }} className="flex-1 py-3.5 rounded-xl font-bold text-sm bg-green-500 text-white shadow-lg shadow-green-500/20">Submit Now</button>
+                                </div>
+                            </motion.div>
+                        </div>
+                    )}
+                </AnimatePresence>
+
+                {/* ── PPDT Observation Confirmation Modal ────────────────── */}
+                <AnimatePresence>
+                    {showPPDTConfirm && (
+                        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm">
+                            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
+                                className="w-full max-w-sm rounded-3xl p-8 text-center" style={{ background: '#0e0e0e', border: '1px solid rgba(245,166,35,0.2)', boxShadow: '0 0 60px rgba(245,166,35,0.06)' }}>
+                                <AlertCircle className="w-12 h-12 mx-auto mb-4 text-amber-500" />
+                                <h3 className="text-xl font-black text-white mb-2" style={{ fontFamily: 'Cinzel, serif' }}>GO TO WRITING?</h3>
+                                <p className="text-sm text-gray-500 mb-8">Observation time is still remaining. Are you sure you want to start writing your story now?</p>
+                                <div className="flex gap-3">
+                                    <button onClick={() => setShowPPDTConfirm(false)} className="flex-1 py-3.5 rounded-xl font-bold text-sm bg-white/5 border border-white/10 text-white">Continue Observing</button>
+                                    <button onClick={() => { setShowPPDTConfirm(false); setPpdtPhase('writing'); }} className="flex-1 py-3.5 rounded-xl font-bold text-sm bg-amber-500 text-white shadow-lg shadow-amber-500/20">Start Writing</button>
+                                </div>
+                            </motion.div>
+                        </div>
+                    )}
+                </AnimatePresence>
+
+                {/* ── Full Screen Image Modal ────────────────────────────── */}
+                <AnimatePresence>
+                    {showFullScreen && (
+                        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/95 p-4 lg:p-10" onClick={() => setShowFullScreen(false)}>
+                            <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="relative max-w-full max-h-full">
+                                <button className="absolute -top-12 right-0 p-2 text-white/60 hover:text-white transition-colors" onClick={() => setShowFullScreen(false)}><X className="w-8 h-8" /></button>
+                                <img src={ppdtImage} alt="PPDT Scenario Full Screen" className="max-w-full max-h-[85vh] rounded-2xl object-contain shadow-2xl" />
+                            </motion.div>
+                        </div>
+                    )}
+                </AnimatePresence>
+                {/* ── Main Left Column ────────────────────────────────────── */}
+                <div className="flex-1 flex flex-col min-w-0">
+                    {/* ── Header ───────────────────────────────────────────────── */}
+                    <div className="flex items-center justify-between mb-8">
                     <div className="flex items-center gap-4">
                         <button
-                            onClick={() => navigate('/tests')}
+                            onClick={() => setShowExitModal(true)}
                             className="p-2.5 rounded-xl transition-all"
                             style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}
                         >
@@ -693,6 +785,8 @@ const TestPlayer = () => {
                     )}
                 </div>
 
+
+
                 {/* ── Progress Bar ─────────────────────────────────────────── */}
                 <div className="h-1 w-full rounded-full mb-10 overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)' }}>
                     <motion.div
@@ -719,13 +813,21 @@ const TestPlayer = () => {
                                 <p className="text-xs font-black tracking-widest uppercase mb-6" style={{ color: catColor }}>
                                     👁️ Observe carefully — 30 seconds
                                 </p>
-                                <img
-                                    src={ppdtImage}
-                                    alt="PPDT scenario"
-                                    className="max-h-[420px] w-auto rounded-2xl object-cover transition-all duration-300 hover:scale-[1.02]"
-                                    style={{ border: '1px solid rgba(245,166,35,0.15)', boxShadow: '0 20px 60px rgba(0,0,0,0.6)' }}
-                                    onError={e => { e.target.style.display = 'none'; }}
-                                />
+                                <div className="relative group/img max-w-full">
+                                    <img
+                                        src={ppdtImage}
+                                        alt="PPDT scenario"
+                                        className="max-h-[420px] w-auto rounded-2xl object-cover transition-all duration-300 group-hover/img:scale-[1.01]"
+                                        style={{ border: '1px solid rgba(245,166,35,0.15)', boxShadow: '0 20px 60px rgba(0,0,0,0.6)' }}
+                                        onError={e => { e.target.style.display = 'none'; }}
+                                    />
+                                    <button 
+                                        onClick={() => setShowFullScreen(true)}
+                                        className="absolute bottom-4 right-4 p-3 rounded-xl bg-black/60 backdrop-blur-md border border-white/10 text-white opacity-0 group-hover/img:opacity-100 transition-all flex items-center gap-2 text-xs font-black"
+                                    >
+                                        <Maximize2 className="w-4 h-4" /> Full Screen
+                                    </button>
+                                </div>
                                 <p className="mt-6 text-xs italic" style={{ color: '#4a4a4a' }}>
                                     Note characters, mood, action, setting. Story writing begins automatically.
                                 </p>
@@ -874,25 +976,43 @@ const TestPlayer = () => {
 
                     {/* ── Next / Finish Button ──────────────────────────────── */}
                     {/* Hide for WAT (timer auto-advances) but show manual Next */}
-                    <div className="flex justify-between items-center mt-6">
-                        {/* Question count for WAT/SRT */}
-                        {(category === 'WAT' || category === 'SRT') && (
-                            <div className="flex gap-1">
-                                {test.questions.slice(Math.max(0, currentIdx - 2), currentIdx + 3).map((_, i) => {
-                                    const absIdx = Math.max(0, currentIdx - 2) + i;
-                                    return (
-                                        <div key={absIdx} className="w-2 h-2 rounded-full transition-all"
-                                            style={{ background: absIdx === currentIdx ? catColor : absIdx < currentIdx ? `${catColor}40` : 'rgba(255,255,255,0.1)' }} />
-                                    );
-                                })}
-                            </div>
-                        )}
+                    <div className="flex justify-between items-center mt-8 pt-6 border-t border-white/5">
+                        <div className="flex gap-3">
+                            <button
+                                onClick={prev}
+                                disabled={currentIdx === 0}
+                                className="p-4 rounded-2xl transition-all bg-white/5 border border-white/10 text-gray-400 disabled:opacity-20"
+                            >
+                                <ChevronLeft className="w-6 h-6" />
+                            </button>
+                            
+                            {category !== 'PPDT' && category !== 'WAT' && (
+                                <button
+                                    onClick={toggleMarkForReview}
+                                    className={`px-6 py-4 rounded-2xl font-black text-sm transition-all flex items-center gap-2 ${
+                                        markedForReview.has(currentIdx) 
+                                            ? 'bg-purple-500 text-white shadow-lg shadow-purple-500/20' 
+                                            : 'bg-white/5 border border-white/10 text-purple-400 hover:bg-purple-500/10'
+                                    }`}
+                                    style={{ fontFamily: 'Cinzel, serif' }}
+                                >
+                                    <Target className="w-4 h-4" />
+                                    {markedForReview.has(currentIdx) ? 'Marked' : 'Mark Review'}
+                                </button>
+                            )}
+                        </div>
 
                         <button
                             onClick={() => {
+                                // For OIR and other question-based tests, ensure an answer is provided before next
+                                if (!['PPDT', 'WAT', 'SRT'].includes(category) && !responses[q.id]) {
+                                    toast('Please provide an answer before proceeding.', 'info');
+                                    return;
+                                }
+
                                 if (category === 'PPDT') {
                                     if (ppdtPhase === 'viewing') {
-                                        setPpdtPhase('writing');
+                                        setShowPPDTConfirm(true);
                                     } else if (ppdtPhase === 'writing') {
                                         if (!ppdtUploadWindow) {
                                             if (isMobile) {
@@ -901,14 +1021,14 @@ const TestPlayer = () => {
                                                 setPpdtUploadWindow(true);
                                             }
                                         } else {
-                                            finish();
+                                            setShowSubmitModal(true);
                                         }
                                     }
                                 } else {
                                     next();
                                 }
                             }}
-                            className="ml-auto flex items-center gap-3 px-8 py-4 rounded-2xl font-black text-lg text-black transition-all active:scale-95"
+                            className="flex items-center gap-3 px-10 py-4 rounded-2xl font-black text-lg text-black transition-all active:scale-95"
                             style={{ background: catColor, boxShadow: `0 8px 24px ${catColor}35`, fontFamily: 'Cinzel, serif' }}
                         >
                             {category === 'PPDT' ? (
@@ -921,7 +1041,56 @@ const TestPlayer = () => {
                         </button>
                     </div>
                 </div>
-            </div>
+            </div> {/* End Left Column */}
+
+            {/* ── Right Column: Question Palette ──────────────────────── */}
+            {category !== 'PPDT' && (
+                <div className="w-full lg:w-80 flex-shrink-0">
+                    <div className="p-6 rounded-3xl bg-white/5 border border-white/10 sticky top-28">
+                        <p className="text-sm font-black uppercase tracking-widest mb-6 text-gray-400">Question Palette</p>
+                        
+                        <div className="grid grid-cols-2 gap-4 mb-8">
+                            <div className="flex items-center gap-2 text-xs text-gray-400 font-bold">
+                                <div className="w-3 h-3 rounded bg-blue-500/20 border border-blue-500"></div> Answered
+                            </div>
+                            <div className="flex items-center gap-2 text-xs text-gray-400 font-bold">
+                                <div className="w-3 h-3 rounded bg-white/5 border border-white/10"></div> Unanswered
+                            </div>
+                            <div className="flex items-center gap-2 text-xs text-gray-400 font-bold">
+                                <div className="w-3 h-3 rounded bg-purple-500/20 border border-purple-500"></div> Marked
+                            </div>
+                            <div className="flex items-center gap-2 text-xs text-gray-400 font-bold">
+                                <div className="w-3 h-3 rounded bg-amber-500 border border-amber-500"></div> Current
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-5 gap-3">
+                            {test.questions.map((_, i) => {
+                                const isAnswered = !!responses[test.questions[i].id];
+                                const isMarked = markedForReview.has(i);
+                                const isCurrent = currentIdx === i;
+                                
+                                return (
+                                    <button
+                                        key={i}
+                                        onClick={() => setCurrentIdx(i)}
+                                        className={`aspect-square rounded-xl text-sm font-black transition-all flex items-center justify-center border hover:scale-105 active:scale-95 ${
+                                            isCurrent ? 'ring-2 ring-offset-2 ring-offset-[#0e0e0e] ring-amber-500 border-amber-500 bg-amber-500 text-black shadow-lg shadow-amber-500/20' :
+                                            isMarked ? 'bg-purple-500/20 border-purple-500 text-purple-400' :
+                                            isAnswered ? 'bg-blue-500/20 border-blue-500 text-blue-400' :
+                                            'bg-white/5 border-white/10 text-gray-500 hover:bg-white/10'
+                                        }`}
+                                    >
+                                        {i + 1}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+            )}
+            
+            </div> {/* End Main Row */}
         </div>
     );
 };

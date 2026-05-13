@@ -46,10 +46,10 @@ services:
     ports:
       - "8000:8000"
     environment:
-      DATABASE_URL: postgresql://ssb_user:ssb_secure_pass_2026@db:5432/ssb_platform
+      DATABASE_URL: ${DATABASE_URL:-""}
       REDIS_URL: redis://redis:6379/0
-      GEMINI_API_KEY: ${GEMINI_API_KEY:-AIzaSyCMynwZdKJ45Rc1qQ1Na1yzrvqte0-uhAE}
-      SECRET_KEY: ${SECRET_KEY:-abc1c2b3k4l5m6n7o8p9q0r1s2t3u4v5w6x7y8z9}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-""}
+      SECRET_KEY: ${SECRET_KEY:-""}
       DEBUG: "false"
     depends_on:
       db:

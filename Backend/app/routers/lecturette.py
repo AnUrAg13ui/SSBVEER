@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from app.services import gemini_service
 from app.routers.auth import get_current_user
-from app import models
+
 
 router = APIRouter(prefix="/lecturette", tags=["lecturette"])
 
@@ -12,7 +12,7 @@ class EvaluateRequest(BaseModel):
     duration: int
 
 @router.get("/topics")
-def get_topics(current_user: models.User = Depends(get_current_user)):
+def get_topics(current_user: dict = Depends(get_current_user)):
     """
     Generate a set of 4 random lecturette topics covering multiple levels.
     """
@@ -22,7 +22,7 @@ def get_topics(current_user: models.User = Depends(get_current_user)):
 @router.post("/evaluate")
 def analyze_lecturette(
     request: EvaluateRequest,
-    current_user: models.User = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user)
 ):
     """
     Evaluate the candidate speaker and produce grade sheet & report.

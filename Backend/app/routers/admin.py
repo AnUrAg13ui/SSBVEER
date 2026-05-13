@@ -1,12 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Header
-from sqlalchemy.orm import Session
-from app.database import get_db
-from app.models import Test, Question
+from app.database import get_db, format_mongo_doc
 from app.config import get_settings
 from passlib.context import CryptContext
 from jose import JWTError, jwt
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from bson.objectid import ObjectId
 import json, shutil, uuid
 from typing import Optional
 
@@ -62,29 +61,32 @@ def admin_login(body: dict):
 
 # ─── Stats (read-only, unauthenticated — no sensitive data) ──────────────────
 @router.get("/stats")
-def get_stats(db: Session = Depends(get_db)):
-    from app.models import User, UserTest, MockInterview
+def get_stats(db = Depends(get_db)):
     return {
-        "users": db.query(User).count(),
-        "tests": db.query(Test).count(),
-        "results": db.query(UserTest).count(),
-        "interviews": db.query(MockInterview).count(),
+        "users": db.users.count_documents({}),
+        "tests": db.tests.count_documents({}),
+        "results": db.user_tests.count_documents({}),
+        "interviews": db.mock_interviews.count_documents({}),
     }
 
 # ─── GPE Tasks ───────────────────────────────────────────────────────────────
 GPE_IMAGES_DIR = Path(__file__).resolve().parent.parent.parent / "uploads" / "gpe"
 
 @router.get("/gpe")
-def list_gpe(db: Session = Depends(get_db)):
-    tests = db.query(Test).filter(Test.category == "GPE").all()
+def list_gpe(db = Depends(get_db)):
+    tests = list(db.tests.find({"category": "GPE"}))
     result = []
     for t in tests:
-        qs = [{"id": q.id, "text": q.text, "options": q.options} for q in t.questions]
-        result.append({"id": t.id, "title": t.title, "description": t.description, "questions": qs})
+        result.append({
+            "id": str(t["_id"]), 
+            "title": t.get("title"), 
+            "description": t.get("description"), 
+            "questions": t.get("questions", [])
+        })
     return result
 
 @router.post("/gpe")
-def create_gpe(body: dict, db: Session = Depends(get_db), _admin: str = Depends(get_admin_from_token)):
+def create_gpe(body: dict, db = Depends(get_db), _admin: str = Depends(get_admin_from_token)):
     title = body.get("title", "GPE Task")
     description = body.get("description", "")
     situation = body.get("situation", "")
@@ -93,16 +95,6 @@ def create_gpe(body: dict, db: Session = Depends(get_db), _admin: str = Depends(
     model_answer = body.get("model_answer", "")
     map_image_url = body.get("map_image_url", "")   # ← NEW: optional uploaded map photo
 
-    new_test = Test(
-        title=title,
-        category="GPE",
-        description=description,
-        duration_seconds=1800
-    )
-    db.add(new_test)
-    db.commit()
-    db.refresh(new_test)
-
     payload = json.dumps({
         "situation": situation,
         "resources": resources,
@@ -110,18 +102,32 @@ def create_gpe(body: dict, db: Session = Depends(get_db), _admin: str = Depends(
         "model_answer": model_answer,
         "map_image_url": map_image_url,   # ← stored in payload
     })
-    q = Question(test_id=new_test.id, text=situation[:500], options=payload, correct_answer="")
-    db.add(q)
-    db.commit()
-    return {"success": True, "id": new_test.id, "title": title}
+    
+    new_test = {
+        "title": title,
+        "category": "GPE",
+        "description": description,
+        "duration_seconds": 1800,
+        "questions": [{
+            "id": str(uuid.uuid4()),
+            "text": situation[:500],
+            "options": payload,
+            "correct_answer": ""
+        }]
+    }
+    
+    res = db.tests.insert_one(new_test)
+    return {"success": True, "id": str(res.inserted_id), "title": title}
 
 @router.delete("/gpe/{test_id}")
-def delete_gpe(test_id: int, db: Session = Depends(get_db), _admin: str = Depends(get_admin_from_token)):
-    test = db.query(Test).filter(Test.id == test_id, Test.category == "GPE").first()
-    if not test:
+def delete_gpe(test_id: str, db = Depends(get_db), _admin: str = Depends(get_admin_from_token)):
+    try:
+        obj_id = ObjectId(test_id) if len(test_id) == 24 else test_id
+        res = db.tests.delete_one({"_id": obj_id, "category": "GPE"})
+        if res.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="GPE Task not found")
+    except Exception:
         raise HTTPException(status_code=404, detail="GPE Task not found")
-    db.delete(test)
-    db.commit()
     return {"success": True}
 
 # ─── GPE Map Image upload ─────────────────────────────────────────────────────
@@ -190,45 +196,53 @@ def delete_ppdt_image(filename: str, _admin: str = Depends(get_admin_from_token)
 
 # ─── WAT / SRT Bundles ────────────────────────────────────────────────────────
 @router.get("/bundles/{category}")
-def list_bundles(category: str, db: Session = Depends(get_db)):
+def list_bundles(category: str, db = Depends(get_db)):
     cat = category.upper()
-    tests = db.query(Test).filter(Test.category == cat).all()
+    tests = list(db.tests.find({"category": cat}))
     result = []
     for t in tests:
-        words = [q.text for q in t.questions]
-        result.append({"id": t.id, "title": t.title, "description": t.description, "items": words, "count": len(words)})
+        words = [q.get("text") for q in t.get("questions", [])]
+        result.append({"id": str(t["_id"]), "title": t.get("title"), "description": t.get("description"), "items": words, "count": len(words)})
     return result
 
 @router.post("/bundles")
-def create_bundle(body: dict, db: Session = Depends(get_db), _admin: str = Depends(get_admin_from_token)):
+def create_bundle(body: dict, db = Depends(get_db), _admin: str = Depends(get_admin_from_token)):
     category = body.get("category","WAT").upper()
     title = body.get("title", f"{category} Bundle")
     description = body.get("description","")
     items = body.get("items", [])
 
     duration_map = {"WAT": 150, "SRT": 900, "OIR": 900}
-    new_test = Test(
-        title=title, category=category,
-        description=description,
-        duration_seconds=duration_map.get(category, 900)
-    )
-    db.add(new_test)
-    db.commit()
-    db.refresh(new_test)
-
+    
+    questions = []
     for item in items:
-        q = Question(test_id=new_test.id, text=item.strip(), options="[]", correct_answer="")
-        db.add(q)
-    db.commit()
-    return {"success": True, "id": new_test.id, "title": title, "count": len(items)}
+        questions.append({
+            "id": str(uuid.uuid4()),
+            "text": item.strip(),
+            "options": "[]",
+            "correct_answer": ""
+        })
+
+    new_test = {
+        "title": title, 
+        "category": category,
+        "description": description,
+        "duration_seconds": duration_map.get(category, 900),
+        "questions": questions
+    }
+    
+    res = db.tests.insert_one(new_test)
+    return {"success": True, "id": str(res.inserted_id), "title": title, "count": len(items)}
 
 @router.delete("/bundles/{test_id}")
-def delete_bundle(test_id: int, db: Session = Depends(get_db), _admin: str = Depends(get_admin_from_token)):
-    test = db.query(Test).filter(Test.id == test_id).first()
-    if not test:
+def delete_bundle(test_id: str, db = Depends(get_db), _admin: str = Depends(get_admin_from_token)):
+    try:
+        obj_id = ObjectId(test_id) if len(test_id) == 24 else test_id
+        res = db.tests.delete_one({"_id": obj_id})
+        if res.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="Bundle not found")
+    except Exception:
         raise HTTPException(status_code=404, detail="Bundle not found")
-    db.delete(test)
-    db.commit()
     return {"success": True}
 
 # ─── Command Task Models ──────────────────────────────────────────────────────

@@ -1,5 +1,5 @@
 from pydantic import BaseModel, field_validator, Field
-from typing import List, Optional, Union
+from typing import List, Optional, Union, Dict
 from datetime import datetime
 import json
 
@@ -32,12 +32,16 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     """Signup schema — google_id/picture intentionally excluded (set only via /auth/google)."""
     password: str
+    institute_code: Optional[str] = None
 
 class User(UserBase):
     """Full user read schema."""
-    id: int
+    id: str
     is_active: bool
     is_admin: bool = False
+    role: str = "user"
+    institute_id: Optional[str] = None
+    institute_name: Optional[str] = None
     google_id: Optional[str] = None
     picture: Optional[str] = None
     mobile: Optional[str] = None
@@ -45,6 +49,46 @@ class User(UserBase):
 
     class Config:
         from_attributes = True
+
+# Institutes
+class InstituteBase(BaseModel):
+    name: str
+
+class InstituteCreate(InstituteBase):
+    pass
+
+class InstituteResponse(InstituteBase):
+    id: str
+    code: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+# ── Institute Admin: Create admin credentials ─────────────────────────────────
+class CreateInstituteAdmin(BaseModel):
+    username: str
+    password: str
+    full_name: Optional[str] = None
+    email: Optional[str] = None
+
+# ── Institute Admin: Test creation ────────────────────────────────────────────
+class InstituteTestQuestion(BaseModel):
+    text: str
+    options: Union[List[str], str] = []
+    correct_answer: str = ""
+
+class InstituteTestCreate(BaseModel):
+    title: str
+    category: str  # OIR, PPDT, WAT, SRT
+    description: Optional[str] = None
+    duration_seconds: int = 900
+    questions: List[InstituteTestQuestion]
+
+# ── Grading ───────────────────────────────────────────────────────────────────
+class GradeSubmission(BaseModel):
+    admin_score: int = Field(..., ge=0, le=100)
+    admin_feedback: str = ""
 
 # Test
 class QuestionBase(BaseModel):
@@ -64,8 +108,8 @@ class QuestionBase(BaseModel):
         return v if isinstance(v, list) else []
 
 class Question(QuestionBase):
-    id: int
-    test_id: int
+    id: str
+    test_id: str
 
     class Config:
         from_attributes = True
@@ -80,7 +124,7 @@ class TestCreate(TestBase):
     questions: List[QuestionBase]
 
 class Test(TestBase):
-    id: int
+    id: str
     questions: List[Question] = []
 
     class Config:
@@ -88,8 +132,8 @@ class Test(TestBase):
 
 # Results
 class SubmitTest(BaseModel):
-    test_id: int
-    answers: dict[int, str]
+    test_id: str
+    answers: dict[str, str]
     time_taken: int
 
 class TestResult(BaseModel):
@@ -97,6 +141,15 @@ class TestResult(BaseModel):
     total_questions: int
     percentage: float
     feedback: str
+
+# ── Enhanced save-test with answers ───────────────────────────────────────────
+class SaveTestResult(BaseModel):
+    test_id: str
+    score: int
+    total_questions: int
+    time_taken: int       # seconds
+    category: str
+    answers: Optional[Dict[str, str]] = None  # {question_id: answer_text}
 
 # Mock Interview
 class InterviewInput(BaseModel):

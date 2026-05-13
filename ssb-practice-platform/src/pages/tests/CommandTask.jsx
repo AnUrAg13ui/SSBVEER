@@ -1,907 +1,526 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import {
-    Flag, ChevronLeft, ChevronRight, Users, Star, Shield,
-    AlertTriangle, Clock, CheckCircle, XCircle, Zap, Trophy,
-    RotateCcw, Eye, Lightbulb, Target, Award
+    ChevronLeft, Flag, Target, Zap, AlertTriangle, Shield,
+    Clock, Award, RotateCcw, Box, ArrowRightCircle, Plus, RotateCw, Lightbulb
 } from 'lucide-react';
+import confetti from 'canvas-confetti';
 
-// ─── Obstacle Scenarios ────────────────────────────────────────────────────────
-const OBSTACLES = [
-    {
-        id: 1,
-        name: 'River of Death',
-        difficulty: 'Medium',
-        diffColor: '#f5a623',
-        description: 'A 12-foot wide "electric" river (red zone). A single wooden plank (10 ft), one rope (15 ft), and a log (6 ft) are available. Start platform: 3 ft high. End platform: 4 ft high.',
-        svg: 'river',
-        rules: ['No touching the red zone', 'Plank must not bridge directly (too short)', 'Load (jerry can) must be carried across', 'All members must cross'],
-        optimalPlan: 'Use log as fulcrum on start platform, extend plank across using log as lever. Rope to pull plank once members cross. Transport load first.',
-        resources: ['Plank (10 ft)', 'Rope (15 ft)', 'Log (6 ft)', 'Jerry Can (load)'],
-    },
-    {
-        id: 2,
-        name: 'The Wall Breach',
-        difficulty: 'Hard',
-        diffColor: '#ef4444',
-        description: 'A 10-foot black wall (cannot touch). A plank (12 ft), rope (20 ft), and a short post (3 ft) are given. The wall has a peg at 6 ft height on both sides.',
-        svg: 'wall',
-        rules: ['Cannot touch black surface', 'Post not allowed to be used in mid-air', 'One member must stay on start side until all equipment is across', 'No jumping from top'],
-        optimalPlan: 'Use plank leaning at angle on near peg. Climb plank with rope tied. Helper hoists load. Second helper holds plank steady. Commander crosses last.',
-        resources: ['Plank (12 ft)', 'Rope (20 ft)', 'Post (3 ft)', 'Sack (load)'],
-    },
-    {
-        id: 3,
-        name: 'Twin Pillars',
-        difficulty: 'Easy',
-        diffColor: '#22c55e',
-        description: 'Two white pillars (white = safe) stand 6 ft apart in a yellow zone. A 14 ft plank and a rope are available. The far bank is 8 ft away from last pillar.',
-        svg: 'pillars',
-        rules: ['Yellow zone = out of bounds for feet', 'White pillars can be touched/stood on', 'Must use plank at least once', 'Load must not touch yellow zone'],
-        optimalPlan: 'Bridge plank from Start → Pillar 1. Transfer load. Reposition plank to Pillar 2. Then to far bank. Use rope for load stabilization.',
-        resources: ['Plank (14 ft)', 'Rope (18 ft)', 'Drum (load)'],
-    },
-    {
-        id: 4,
-        name: 'Trench Assault',
-        difficulty: 'Medium',
-        diffColor: '#f5a623',
-        description: 'A 15-foot wide trench with a red zone at bottom. Far bank is 2 ft higher. A plank (13 ft), log (4 ft as fulcrum), and rope available. A barrel of "ammunition" must be taken across.',
-        svg: 'trench',
-        rules: ['Cannot jump across - must bridge', 'Log must stay on start bank', 'Barrel must arrive before last person', 'Rule of Infinity: log cannot extend over red zone floor'],
-        optimalPlan: 'Wedge log at edge as stopper/support. Lay plank at angle using log wedge. Helper holds plank on near side. Commander and other helper carry barrel across, then rope used to pull the plank across.',
-        resources: ['Plank (13 ft)', 'Log (4 ft)', 'Rope (15 ft)', 'Barrel (load)'],
-    },
-    {
-        id: 5,
-        name: 'SSB Command Task — Ground 1',
-        difficulty: 'Hard',
-        diffColor: '#8b5cf6',
-        description: 'Real SSB Command Task layout (SSB Shastra model). Study the 3D ground: identify the start platform, obstacle structure, color zones, and available resources. Plan a crossing strategy using the interactive viewer.',
-        sketchfabId: 'fbf17f62d7054f8eaf049e475895829c',
-        rules: ['Color-coded zones apply: White (safe), Black/Yellow (no contact), Red (electric)', 'Rule of Infinity: no item may extend over a forbidden zone', 'Jump Rule: no jumping from a height exceeding your waist', 'Load must reach the far side before the last person'],
-        optimalPlan: 'Study the 3D model carefully. Identify the closest safe supports, then build a bridge using plank+log. Ensure load moves first, helpers support structure, commander leads from front and crosses last.',
-        resources: ['Plank', 'Rope', 'Log', 'Load (as assigned)'],
-        is3D: true,
-    },
-    {
-        id: 6,
-        name: 'SSB Command Task — Ground 2',
-        difficulty: 'Hard',
-        diffColor: '#06b6d4',
-        description: 'Second real SSB Command Task layout. A more complex obstacle with multiple color zones. Use the interactive 3D viewer to plan your approach from all angles before committing.',
-        sketchfabId: '7efecd7cbfce4646909ef8a6c1a8c5f5',
-        rules: ['All standard GTO rules apply', 'Helpers must obey only your instructions', 'Rule of Rigidity: flexible items may not be used as rigid supports', 'No body part of any person may touch a forbidden zone at any time'],
-        optimalPlan: 'Rotate around the model to identify the nearest safe anchor points. Plan a two-phase crossing: setup bridge using plank, transfer load via rope, then guide helpers to follow using demonstrated technique.',
-        resources: ['Plank', 'Rope', 'Log', 'Load (as assigned)'],
-        is3D: true,
-    },
-];
+// ─── MATH UTILS ─────────────────────────────────────────────────────────────
+const dist2 = (v, w) => Math.pow(v.x - w.x, 2) + Math.pow(v.y - w.y, 2);
+const distToSegmentSquared = (p, v, w) => {
+    let l2 = dist2(v, w);
+    if (l2 === 0) return dist2(p, v);
+    let t = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2;
+    t = Math.max(0, Math.min(1, t));
+    return dist2(p, { x: v.x + t * (w.x - v.x), y: v.y + t * (w.y - v.y) });
+};
+const pointToSegmentDistance = (p, v, w) => Math.sqrt(distToSegmentSquared(p, v, w));
 
-// ─── Candidate pool ────────────────────────────────────────────────────────────
-const CANDIDATES = [
-    { id: 1, name: 'Cadet Arjun', strength: 'Physical', trait: 'Action-oriented, strongest physically but occasionally reckless.', score: 85, tag: 'Recommended', tagColor: '#22c55e', completes: true },
-    { id: 2, name: 'Cadet Priya', strength: 'Strategic', trait: 'Calm under pressure, thinks clearly but sometimes slow to act.', score: 78, tag: 'Reliable', tagColor: '#f5a623', completes: true },
-    { id: 3, name: 'Cadet Rahul', strength: 'Communication', trait: 'Great at following orders, good situational awareness.', score: 72, tag: 'Reliable', tagColor: '#f5a623', completes: true },
-    { id: 4, name: 'Cadet Dev', strength: 'Leadership', trait: 'Tends to offer his own solutions instead of following orders. Competitive.', score: 61, tag: 'Risk', tagColor: '#ef4444', completes: false },
-    { id: 5, name: 'Cadet Simran', strength: 'Agility', trait: 'Quick and nimble, great for technical crossing but nervous under observation.', score: 68, tag: 'Situational', tagColor: '#8b5cf6', completes: true },
-    { id: 6, name: 'Cadet Vikram', strength: 'Strength', trait: 'Very strong but needs very explicit, step-by-step instructions.', score: 65, tag: 'Situational', tagColor: '#8b5cf6', completes: true },
-];
-
-// ─── Execution choices ─────────────────────────────────────────────────────────
-const PLAN_CHOICES = [
-    {
-        id: 'A',
-        text: 'Plan first silently, then explain entire plan to helpers, delegate each step, lead from front.',
-        score: 10, olq: ['Decisiveness', 'Effective Intelligence', 'Ability to Influence'],
-    },
-    {
-        id: 'B',
-        text: 'Immediately start placing plank and tell helpers to follow your lead as you go.',
-        score: 6, olq: ['Initiative', 'Physical Stamina'],
-    },
-    {
-        id: 'C',
-        text: 'Ask helpers for their ideas first, then combine and execute together.',
-        score: 4, olq: ['Cooperation'],
-        penalty: 'Helpers should follow, not lead. GTO notes loss of command authority.',
-    },
-    {
-        id: 'D',
-        text: 'Start issuing rapid, incomplete commands without fully planning. Try to figure it out mid-task.',
-        score: 2, olq: [],
-        penalty: 'Confusion in execution. Helpers make errors. GTO observes poor planning.',
-    },
-];
-
-const EXECUTION_STEPS = [
-    {
-        id: 'step1',
-        title: 'Communicating the Plan',
-        prompt: 'Your helper Cadet Vikram is looking confused after your first instruction. What do you do?',
-        choices: [
-            { text: 'Calmly walk to him, physically demonstrate the task, and repeat the instruction clearly.', score: 10, feedback: '✦ Excellent. GTO notes composure and ability to teach under pressure.' },
-            { text: 'Raise your voice and repeat the same instruction louder.', score: 3, feedback: '⚠ Yelling is a red flag. GTO notes loss of composure.' },
-            { text: 'Skip him. Ask other helper to do both tasks.', score: 5, feedback: '↳ Neutral. Functional but misses delegation opportunity.' },
-            { text: 'Stop, acknowledge the confusion, reassign the task and move on.', score: 8, feedback: '✦ Good recovery. Shows adaptability.' },
-        ],
-    },
-    {
-        id: 'step2',
-        title: 'Rule Violation',
-        prompt: 'Your helper accidentally touched the red zone with their foot. The GTO is watching. What do you do?',
-        choices: [
-            { text: 'Immediately acknowledge: "Stop. That\'s a rule violation. Let\'s redo from this position." and replan.', score: 10, feedback: '✦ Perfect. Integrity and composure. GTO is impressed.' },
-            { text: 'Quietly wave helper back. Hope GTO didn\'t see it and continue.', score: 0, feedback: '✗ GTO saw it. Hiding violations is a serious mark against integrity.' },
-            { text: 'Blame the helper in front of the GTO.', score: 1, feedback: '✗ Blaming subordinates shows poor leadership. Never do this.' },
-            { text: 'Pause the task, inform GTO, ask for a restart from last valid position.', score: 9, feedback: '✦ Very good. Transparent, shows ownership of team\'s actions.' },
-        ],
-    },
-    {
-        id: 'step3',
-        title: 'GTO Increases Difficulty',
-        prompt: 'Mid-task, the GTO says: "The log is now out of bounds. You cannot use it." How do you respond?',
-        choices: [
-            { text: 'Pause, reassess quickly, reformulate plan using only remaining resources, communicate new plan.', score: 10, feedback: '✦ Outstanding adaptability. This is what the GTO wants to see.' },
-            { text: 'Ask GTO: "Can we use a different item instead?"', score: 6, feedback: '↳ Shows resourcefulness but slight dependence on GTO. Better to find own solution.' },
-            { text: 'Express frustration visibly and take a long time to restart.', score: 2, feedback: '⚠ GTO notes lack of composure under changed conditions.' },
-            { text: 'Say "Yes sir" immediately and carry on — then figure it out as you go without informing helpers.', score: 4, feedback: '↳ Initiative is good but failing to rebrief helpers causes team confusion.' },
-        ],
-    },
-];
-
-// ─── Phase Enum ────────────────────────────────────────────────────────────────
-const PHASE = { INTRO: 'intro', SELECT_OBSTACLE: 'select_obstacle', SELECT_HELPERS: 'select_helpers', PLANNING: 'planning', EXECUTION: 'execution', RESULT: 'result' };
-
-// ─── Sketchfab 3D Viewer ───────────────────────────────────────────────────────
-const Sketchfab3DViewer = ({ modelId, height = 280 }) => {
-    const [loaded, setLoaded] = useState(false);
-    return (
-        <div className="relative w-full rounded-xl overflow-hidden" style={{ height, background: '#0d0d0d' }}>
-            {!loaded && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 z-10">
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(139,92,246,0.15)' }}>
-                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24">
-                            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#8b5cf6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                    </div>
-                    <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#4a4a4a' }}>Loading 3D Model…</p>
-                </div>
-            )}
-            <iframe
-                title="Sketchfab 3D Model"
-                src={`https://sketchfab.com/models/${modelId}/embed?autospin=0&autostart=1&preload=1&ui_theme=dark&ui_controls=1&ui_infos=0&ui_watermark=0`}
-                className="w-full h-full border-none"
-                allow="autoplay; fullscreen; xr-spatial-tracking"
-                allowFullScreen
-                onLoad={() => setLoaded(true)}
-                style={{ opacity: loaded ? 1 : 0, transition: 'opacity 0.5s ease' }}
-            />
-        </div>
-    );
+const onSegment = (p, q, r) => q.x <= Math.max(p.x, r.x) && q.x >= Math.min(p.x, r.x) && q.y <= Math.max(p.y, r.y) && q.y >= Math.min(p.y, r.y);
+const orientation = (p, q, r) => {
+    let val = (q.y - p.y) * (r.x - q.x) - (q.x - p.x) * (r.y - q.y);
+    if (val === 0) return 0;
+    return (val > 0) ? 1 : 2;
+};
+const doIntersect = (p1, q1, p2, q2) => {
+    let o1 = orientation(p1, q1, p2);
+    let o2 = orientation(p1, q1, q2);
+    let o3 = orientation(p2, q2, p1);
+    let o4 = orientation(p2, q2, q1);
+    if (o1 !== o2 && o3 !== o4) return true;
+    if (o1 === 0 && onSegment(p1, p2, q1)) return true;
+    if (o2 === 0 && onSegment(p1, q2, q1)) return true;
+    if (o3 === 0 && onSegment(p2, p1, q2)) return true;
+    if (o4 === 0 && onSegment(p2, q1, q2)) return true;
+    return false;
 };
 
-// ─── Combined Obstacle Preview (SVG or 3D) ─────────────────────────────────────
-const ObstaclePreview = ({ obs, expanded = false }) => {
-    const [show3D, setShow3D] = useState(false);
+const getEnds = (x, y, length, rot) => {
+    const rad = rot * Math.PI / 180;
+    return {
+        end1: { x: x - (length / 2) * Math.cos(rad), y: y - (length / 2) * Math.sin(rad) },
+        end2: { x: x + (length / 2) * Math.cos(rad), y: y + (length / 2) * Math.sin(rad) }
+    };
+};
 
-    if (obs.is3D) {
-        return (
-            <div>
-                {show3D ? (
-                    <Sketchfab3DViewer modelId={obs.sketchfabId} height={expanded ? 380 : 260} />
-                ) : (
-                    <div
-                        className="relative flex flex-col items-center justify-center gap-3 cursor-pointer"
-                        style={{ height: 160, background: 'linear-gradient(135deg, #0d0d0d, #150f2a)' }}
-                        onClick={() => setShow3D(true)}
-                    >
-                        <div className="w-14 h-14 rounded-2xl flex items-center justify-center"
-                            style={{ background: `${obs.diffColor}18`, border: `1px solid ${obs.diffColor}35` }}>
-                            <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24">
-                                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke={obs.diffColor} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
-                        </div>
-                        <p className="text-xs font-black uppercase tracking-widest" style={{ color: obs.diffColor }}>Click to Launch 3D Viewer</p>
-                        <div className="absolute top-3 right-3">
-                            <span className="text-xs font-black px-2.5 py-1 rounded-full" style={{ background: `${obs.diffColor}20`, color: obs.diffColor, border: `1px solid ${obs.diffColor}35` }}>
-                                3D
-                            </span>
-                        </div>
-                    </div>
-                )}
-                {show3D && (
-                    <button onClick={() => setShow3D(false)}
-                        className="w-full py-2 text-xs font-bold transition-colors"
-                        style={{ background: '#0d0d0d', color: '#5a5a5a', borderTop: '1px solid rgba(255,255,255,0.05)' }}
-                        onMouseEnter={e => e.currentTarget.style.color = '#fff'}
-                        onMouseLeave={e => e.currentTarget.style.color = '#5a5a5a'}>
-                        ✕ Close 3D Viewer
-                    </button>
-                )}
-            </div>
-        );
+// ─── CONFIG ─────────────────────────────────────────────────────────────────
+const LEVELS = {
+    Easy: {
+        pillars: [{ x: 300, y: 250, r: 25 }, { x: 500, y: 250, r: 25 }],
+        inventory: { plank: 2, balli: 1, rope: 1 },
+        desc: "Two central pillars. Use planks to bridge the gaps."
+    },
+    Medium: {
+        pillars: [{ x: 250, y: 150, r: 20 }, { x: 450, y: 350, r: 20 }],
+        inventory: { plank: 1, balli: 2, rope: 1 },
+        desc: "Staggered pillars. Requires connecting materials."
+    },
+    Hard: {
+        pillars: [{ x: 380, y: 250, r: 15 }],
+        inventory: { plank: 1, balli: 1, rope: 2 },
+        desc: "Only one small pillar. Plan your cantilever carefully."
+    },
+    Expert: {
+        pillars: [{ x: 320, y: 100, r: 20 }, { x: 480, y: 400, r: 20 }],
+        inventory: { plank: 1, balli: 1, rope: 1 },
+        desc: "Extreme gaps. Requires perfect utilization of all resources."
     }
-    return <ObstacleSVG type={obs.svg} />;
 };
 
-// ─── Obstacle SVG illustrations ────────────────────────────────────────────────
-const ObstacleSVG = ({ type }) => {
-    const common = { width: '100%', height: 160, viewBox: '0 0 400 160' };
+const ITEM_CONFIG = {
+    plank: { length: 220, width: 24, color: '#d97706', label: 'Wooden Plank' },
+    balli: { length: 140, width: 16, color: '#b45309', label: 'Balli (Beam)' },
+    rope: { length: 300, width: 6, color: '#e5e7eb', label: 'Rope' },
+};
 
-    if (type === 'river') return (
-        <svg {...common}>
-            <rect width="400" height="160" fill="#0d0d0d" />
-            <rect x="0" y="80" width="90" height="80" fill="#222" stroke="#f5a623" strokeWidth="1" />
-            <text x="45" y="125" fill="#f5a623" fontSize="10" textAnchor="middle">START</text>
-            <rect x="100" y="60" width="200" height="100" fill="#ef444430" stroke="#ef4444" strokeWidth="1.5" strokeDasharray="4,3" />
-            <text x="200" y="118" fill="#ef4444" fontSize="11" textAnchor="middle">⚡ RED ZONE</text>
-            <rect x="310" y="70" width="90" height="90" fill="#222" stroke="#f5a623" strokeWidth="1" />
-            <text x="355" y="120" fill="#f5a623" fontSize="10" textAnchor="middle">END</text>
-            <rect x="110" y="115" width="100" height="10" fill="#c8841a" rx="2" opacity="0.9" />
-            <text x="160" y="152" fill="#888" fontSize="9" textAnchor="middle">Plank</text>
-            <line x1="220" y1="95" x2="300" y2="95" stroke="#aaa" strokeWidth="2" strokeDasharray="3,3" />
-            <text x="260" y="88" fill="#888" fontSize="9" textAnchor="middle">Rope</text>
-            <rect x="60" y="110" width="20" height="25" fill="#3b82f6" rx="2" />
-            <text x="70" y="148" fill="#888" fontSize="9" textAnchor="middle">Load</text>
-        </svg>
-    );
+// ─── COMPONENTS ─────────────────────────────────────────────────────────────
 
-    if (type === 'wall') return (
-        <svg {...common}>
-            <rect width="400" height="160" fill="#0d0d0d" />
-            <rect x="0" y="80" width="130" height="80" fill="#222" stroke="#f5a623" strokeWidth="1" />
-            <text x="65" y="128" fill="#f5a623" fontSize="10" textAnchor="middle">START</text>
-            <rect x="180" y="20" width="40" height="140" fill="#333" stroke="#555" strokeWidth="2" />
-            <text x="200" y="170" fill="#888" fontSize="9" textAnchor="middle">WALL</text>
-            <circle cx="195" cy="75" r="4" fill="#aaa" />
-            <circle cx="215" cy="75" r="4" fill="#aaa" />
-            <text x="200" y="65" fill="#888" fontSize="8" textAnchor="middle">pegs</text>
-            <rect x="240" y="60" width="160" height="100" fill="#222" stroke="#f5a623" strokeWidth="1" />
-            <text x="320" y="120" fill="#f5a623" fontSize="10" textAnchor="middle">END</text>
-            <line x1="130" y1="90" x2="200" y2="70" stroke="#c8841a" strokeWidth="8" strokeLinecap="round" opacity="0.7" />
-        </svg>
-    );
-
-    if (type === 'pillars') return (
-        <svg {...common}>
-            <rect width="400" height="160" fill="#0d0d0d" />
-            <rect x="0" y="80" width="80" height="80" fill="#222" stroke="#f5a623" strokeWidth="1" />
-            <text x="40" y="128" fill="#f5a623" fontSize="10" textAnchor="middle">START</text>
-            <rect x="80" y="40" width="240" height="120" fill="#f5a62310" stroke="#f5a623" strokeWidth="1" strokeDasharray="3,3" />
-            <text x="200" y="55" fill="#f5a623" fontSize="10" textAnchor="middle">YELLOW ZONE</text>
-            <rect x="155" y="70" width="20" height="90" fill="#fff" opacity="0.15" stroke="#fff" strokeWidth="1" />
-            <rect x="225" y="70" width="20" height="90" fill="#fff" opacity="0.15" stroke="#fff" strokeWidth="1" />
-            <text x="165" y="145" fill="#ccc" fontSize="8" textAnchor="middle">P1</text>
-            <text x="235" y="145" fill="#ccc" fontSize="8" textAnchor="middle">P2</text>
-            <rect x="320" y="60" width="80" height="100" fill="#222" stroke="#f5a623" strokeWidth="1" />
-            <text x="360" y="118" fill="#f5a623" fontSize="10" textAnchor="middle">FAR BANK</text>
-        </svg>
-    );
-
+const HUD = ({ score, violations, time, level, setPhase }) => {
+    const formatTime = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
     return (
-        <svg {...common}>
-            <rect width="400" height="160" fill="#0d0d0d" />
-            <rect x="0" y="60" width="100" height="100" fill="#222" stroke="#f5a623" strokeWidth="1" />
-            <text x="50" y="118" fill="#f5a623" fontSize="10" textAnchor="middle">START</text>
-            <rect x="100" y="90" width="200" height="70" fill="#ef444420" stroke="#ef4444" strokeWidth="1.5" strokeDasharray="4,3" />
-            <text x="200" y="132" fill="#ef4444" fontSize="10" textAnchor="middle">TRENCH ⚡</text>
-            <rect x="300" y="50" width="100" height="110" fill="#222" stroke="#f5a623" strokeWidth="1" />
-            <text x="350" y="112" fill="#f5a623" fontSize="10" textAnchor="middle">FAR BANK</text>
-            <rect x="105" y="80" width="180" height="10" fill="#c8841a" rx="2" opacity="0.8" />
-        </svg>
+        <div className="flex items-center justify-between p-4 rounded-2xl mb-6 bg-white/5 border border-white/10 backdrop-blur-md">
+            <div className="flex items-center gap-6">
+                <div>
+                    <p className="text-[10px] uppercase tracking-widest text-gray-500 font-bold mb-1">Level</p>
+                    <p className="text-amber-500 font-black tracking-wide">{level}</p>
+                </div>
+                <div className="w-px h-8 bg-white/10" />
+                <div>
+                    <p className="text-[10px] uppercase tracking-widest text-gray-500 font-bold mb-1">Score</p>
+                    <p className="text-white font-black font-mono">{score}</p>
+                </div>
+                <div className="w-px h-8 bg-white/10" />
+                <div>
+                    <p className="text-[10px] uppercase tracking-widest text-gray-500 font-bold mb-1">Violations</p>
+                    <p className="text-red-400 font-black font-mono">{violations}</p>
+                </div>
+                <div className="w-px h-8 bg-white/10" />
+                <div>
+                    <p className="text-[10px] uppercase tracking-widest text-gray-500 font-bold mb-1">Time</p>
+                    <p className="text-white font-black font-mono flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-amber-500" /> {formatTime(time)}
+                    </p>
+                </div>
+            </div>
+            <button 
+                onClick={() => setPhase('intro')}
+                className="px-5 py-2.5 rounded-xl bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-colors font-bold text-sm"
+            >
+                Abort Task
+            </button>
+        </div>
     );
 };
 
-// ─── Helper Info Tag ───────────────────────────────────────────────────────────
-const CandidateCard = ({ c, selected, onToggle, disabled }) => (
-    <motion.button
-        whileHover={{ y: -3 }}
-        whileTap={{ scale: 0.97 }}
-        onClick={() => !disabled && onToggle(c.id)}
-        className="w-full text-left p-4 rounded-2xl transition-all border"
-        style={{
-            background: selected ? `${c.tagColor}12` : '#0d0d0d',
-            borderColor: selected ? c.tagColor : 'rgba(255,255,255,0.07)',
-            opacity: disabled && !selected ? 0.45 : 1,
-            cursor: disabled && !selected ? 'not-allowed' : 'pointer',
-        }}
-    >
-        <div className="flex items-start justify-between mb-2">
-            <div>
-                <p className="text-sm font-black text-white">{c.name}</p>
-                <p className="text-xs" style={{ color: '#5a5a5a' }}>Strength: {c.strength}</p>
-            </div>
-            <div className="flex flex-col items-end gap-1">
-                <span className="text-xs font-black px-2 py-0.5 rounded-full" style={{ background: `${c.tagColor}20`, color: c.tagColor }}>
-                    {c.tag}
-                </span>
-                {selected && <CheckCircle className="w-4 h-4" style={{ color: c.tagColor }} />}
-            </div>
-        </div>
-        <p className="text-xs leading-relaxed" style={{ color: '#5a5a5a' }}>{c.trait}</p>
-        <div className="mt-2 flex items-center gap-2">
-            <div className="flex-1 h-1 rounded-full" style={{ background: '#1a1a1a' }}>
-                <div className="h-1 rounded-full transition-all" style={{ width: `${c.score}%`, background: c.tagColor }} />
-            </div>
-            <span className="text-xs font-bold" style={{ color: c.tagColor }}>{c.score}</span>
-        </div>
-    </motion.button>
-);
+export default function CommandTaskSimulator() {
+    const [phase, setPhase] = useState('intro'); // intro, level, simulation, result
+    const [level, setLevel] = useState('Medium');
+    const [time, setTime] = useState(0);
+    const [score, setScore] = useState(100);
+    const [violations, setViolations] = useState(0);
+    const [hint, setHint] = useState('Spawn materials from the inventory and drag them onto the field.');
+    
+    // Board state
+    const boardRef = useRef(null);
+    const [materials, setMaterials] = useState([]);
+    const [inventory, setInventory] = useState({ plank: 0, balli: 0, rope: 0 });
+    const [selectedMatId, setSelectedMatId] = useState(null);
+    const [playerPos, setPlayerPos] = useState({ x: 75, y: 250 });
 
-// ─── Scoring OLQ Badge ─────────────────────────────────────────────────────────
-const OLQBadge = ({ label }) => (
-    <span className="text-xs font-bold px-2.5 py-1 rounded-full mr-1.5 mb-1.5 inline-block" style={{ background: 'rgba(245,166,35,0.12)', border: '1px solid rgba(245,166,35,0.2)', color: '#f5a623' }}>
-        {label}
-    </span>
-);
+    const [alertMsg, setAlertMsg] = useState(null);
 
-// ─── Main Simulation Component ─────────────────────────────────────────────────
-const CommandTaskSimulator = () => {
-    const [phase, setPhase] = useState(PHASE.INTRO);
-    const [obstacle, setObstacle] = useState(null);
-    const [helpers, setHelpers] = useState([]);
-    const [planChoice, setPlanChoice] = useState(null);
-    const [execAnswers, setExecAnswers] = useState({});
-    const [execStep, setExecStep] = useState(0);
-    const [totalScore, setTotalScore] = useState(0);
-    const [scoreBreakdown, setScoreBreakdown] = useState([]);
-    const [helperError, setHelperError] = useState('');
-    const [revealed, setRevealed] = useState({});
-    const topRef = useRef(null);
+    useEffect(() => {
+        let timer;
+        if (phase === 'simulation') {
+            timer = setInterval(() => setTime(t => t + 1), 1000);
+        }
+        return () => clearInterval(timer);
+    }, [phase]);
 
-    const scrollTop = () => topRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const triggerAlert = (msg, penalty = 5) => {
+        setAlertMsg(msg);
+        setViolations(v => v + 1);
+        setScore(s => Math.max(0, s - penalty));
+        setTimeout(() => setAlertMsg(null), 2500);
+    };
 
-    const toggleHelper = (id) => {
-        setHelperError('');
-        if (helpers.includes(id)) {
-            setHelpers(helpers.filter(h => h !== id));
-        } else {
-            if (helpers.length >= 2) {
-                setHelperError('You can select a maximum of 2 helpers.');
-                return;
+    const startSimulation = (lvl) => {
+        setLevel(lvl);
+        setInventory(LEVELS[lvl].inventory);
+        setMaterials([]);
+        setPlayerPos({ x: 75, y: 250 });
+        setScore(100);
+        setViolations(0);
+        setTime(0);
+        setHint('Commander, study the layout. Anchor your first plank from the Start zone.');
+        setPhase('simulation');
+    };
+
+    const spawnMaterial = (type) => {
+        if (inventory[type] <= 0) return;
+        setInventory(prev => ({ ...prev, [type]: prev[type] - 1 }));
+        const id = `${type}-${Date.now()}`;
+        setMaterials(prev => [...prev, {
+            id, type, x: 75, y: Math.random() * 200 + 150, rot: 0, placed: true
+        }]);
+        setSelectedMatId(id);
+    };
+
+    const checkMaterialStability = (mId, mX, mY, mRot) => {
+        const matConfig = materials.find(m => m.id === mId);
+        if (!matConfig) return false;
+        const config = ITEM_CONFIG[matConfig.type];
+        const { end1, end2 } = getEnds(mX, mY, config.length, mRot);
+        
+        let supportsFound = new Set();
+        
+        // Check Zones
+        if (end1.x <= 150) supportsFound.add('start_1');
+        if (end2.x <= 150) supportsFound.add('start_2');
+        if (end1.x >= 650) supportsFound.add('finish_1');
+        if (end2.x >= 650) supportsFound.add('finish_2');
+        
+        // Check Pillars
+        LEVELS[level].pillars.forEach((p, i) => {
+            if (pointToSegmentDistance(p, end1, end2) <= p.r + 12) {
+                supportsFound.add('pillar_' + i);
             }
-            setHelpers([...helpers, id]);
-        }
-    };
-
-    const confirmHelpers = () => {
-        if (helpers.length === 0) { setHelperError('Select at least 1 helper.'); return; }
-        scrollTop();
-        setPhase(PHASE.PLANNING);
-    };
-
-    const confirmPlan = () => {
-        if (!planChoice) return;
-        scrollTop();
-        setPhase(PHASE.EXECUTION);
-    };
-
-    const answerExecStep = (choiceIdx) => {
-        const step = EXECUTION_STEPS[execStep];
-        setExecAnswers(prev => ({ ...prev, [step.id]: choiceIdx }));
-    };
-
-    const nextExecStep = () => {
-        const step = EXECUTION_STEPS[execStep];
-        const answered = execAnswers[step.id];
-        if (answered === undefined) return;
-        if (execStep < EXECUTION_STEPS.length - 1) {
-            setExecStep(execStep + 1);
-            scrollTop();
-        } else {
-            calculateResult();
-        }
-    };
-
-    const calculateResult = () => {
-        let score = 0;
-        const breakdown = [];
-
-        // Helper selection score (0-10)
-        const selectedCandidates = CANDIDATES.filter(c => helpers.includes(c.id));
-        const goodHelpers = selectedCandidates.filter(c => c.completes);
-        const helperScore = goodHelpers.length === selectedCandidates.length
-            ? (helpers.length === 2 ? 10 : 7)
-            : goodHelpers.length === 1 ? 5 : 2;
-        score += helperScore;
-        breakdown.push({ label: 'Helper Selection', score: helperScore, max: 10 });
-
-        // Plan score (0-10)
-        const plan = PLAN_CHOICES.find(p => p.id === planChoice);
-        score += plan.score;
-        breakdown.push({ label: 'Planning Approach', score: plan.score, max: 10, olqs: plan.olq, penalty: plan.penalty });
-
-        // Execution steps (0-30 total)
-        EXECUTION_STEPS.forEach((step, i) => {
-            const choiceIdx = execAnswers[step.id];
-            const choice = step.choices[choiceIdx];
-            const s = choice?.score ?? 0;
-            score += s;
-            breakdown.push({ label: step.title, score: s, max: 10, feedback: choice?.feedback });
         });
-
-        setTotalScore(Math.min(score, 50));
-        setScoreBreakdown(breakdown);
-        setPhase(PHASE.RESULT);
-        scrollTop();
+        
+        // Check other materials
+        materials.forEach(other => {
+            if (other.id === mId) return;
+            const oConfig = ITEM_CONFIG[other.type];
+            const oEnds = getEnds(other.x, other.y, oConfig.length, other.rot);
+            if (doIntersect(end1, end2, oEnds.end1, oEnds.end2) || 
+                pointToSegmentDistance(end1, oEnds.end1, oEnds.end2) < 20 || 
+                pointToSegmentDistance(end2, oEnds.end1, oEnds.end2) < 20 ||
+                pointToSegmentDistance(oEnds.end1, end1, end2) < 20 ||
+                pointToSegmentDistance(oEnds.end2, end1, end2) < 20) {
+                supportsFound.add('mat_' + other.id);
+            }
+        });
+        
+        return supportsFound.size >= 2;
     };
 
-    const restart = () => {
-        setPhase(PHASE.INTRO);
-        setObstacle(null);
-        setHelpers([]);
-        setPlanChoice(null);
-        setExecAnswers({});
-        setExecStep(0);
-        setTotalScore(0);
-        setScoreBreakdown([]);
-        setHelperError('');
-        setRevealed({});
-        scrollTop();
+    const handleMatDragEnd = (e, info, mat) => {
+        if (!boardRef.current) return;
+        const board = boardRef.current.getBoundingClientRect();
+        const el = e.target.getBoundingClientRect();
+        
+        const mX = el.left + el.width/2 - board.left;
+        const mY = el.top + el.height/2 - board.top;
+
+        if (checkMaterialStability(mat.id, mX, mY, mat.rot)) {
+            setMaterials(prev => prev.map(m => m.id === mat.id ? { ...m, x: mX, y: mY } : m));
+            setHint('Good placement. Proceed cautiously.');
+        } else {
+            // Invalid placement
+            triggerAlert('RULE BROKEN: Unsupported Material Dropped in Restricted Zone!');
+            // Return to start
+            setMaterials(prev => prev.map(m => m.id === mat.id ? { ...m, x: 75, y: 250, rot: 0 } : m));
+        }
     };
 
-    const getGrade = (s) => {
-        if (s >= 45) return { label: 'Outstanding', color: '#f5a623', icon: Trophy };
-        if (s >= 38) return { label: 'Commendable', color: '#22c55e', icon: Star };
-        if (s >= 28) return { label: 'Average', color: '#8b5cf6', icon: Shield };
-        return { label: 'Needs Work', color: '#ef4444', icon: AlertTriangle };
+    const handlePlayerDragEnd = (e, info) => {
+        if (!boardRef.current) return;
+        const board = boardRef.current.getBoundingClientRect();
+        const el = e.target.getBoundingClientRect();
+        const pX = el.left + el.width/2 - board.left;
+        const pY = el.top + el.height/2 - board.top;
+
+        // Check if player is safe
+        let isSafe = false;
+        
+        if (pX <= 150) isSafe = true; // Start
+        else if (pX >= 650) { // Finish
+            isSafe = true;
+            confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
+            setTimeout(() => setPhase('result'), 1500);
+        } else {
+            // Check pillars
+            LEVELS[level].pillars.forEach(p => {
+                if (Math.hypot(pX - p.x, pY - p.y) <= p.r + 15) isSafe = true;
+            });
+            // Check materials
+            materials.forEach(m => {
+                const conf = ITEM_CONFIG[m.type];
+                const { end1, end2 } = getEnds(m.x, m.y, conf.length, m.rot);
+                if (pointToSegmentDistance({x: pX, y: pY}, end1, end2) <= 25) isSafe = true;
+            });
+        }
+
+        if (isSafe) {
+            setPlayerPos({ x: pX, y: pY });
+        } else {
+            triggerAlert('RULE BROKEN: Commander stepped in Restricted Area!', 10);
+            setPlayerPos({ x: 75, y: 250 }); // reset to start
+        }
     };
 
-    // ── INTRO ──────────────────────────────────────────────────────────────────
-    if (phase === PHASE.INTRO) return (
-        <div ref={topRef} className="min-h-screen pt-24 pb-20 px-4" style={{ background: '#000' }}>
-            <div className="max-w-3xl mx-auto">
-                <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}>
-                    <Link to="/gto-simulator" className="inline-flex items-center gap-2 text-xs font-bold mb-8 transition-colors" style={{ color: '#4a4a4a' }}
-                        onMouseEnter={e => e.currentTarget.style.color = '#f5a623'} onMouseLeave={e => e.currentTarget.style.color = '#4a4a4a'}>
-                        <ChevronLeft className="w-4 h-4" /> Back to GTO
+    const rotateSelected = (deg) => {
+        if (!selectedMatId) return;
+        setMaterials(prev => prev.map(m => {
+            if (m.id !== selectedMatId) return m;
+            const newRot = m.rot + deg;
+            // Temporarily ignore stability while rotating, or we could force it to return to start if invalid.
+            // For better UX, let's allow rotation and check stability on drag drop.
+            return { ...m, rot: newRot };
+        }));
+    };
+
+    // ─── RENDERERS ──────────────────────────────────────────────────────────────
+
+    if (phase === 'intro') return (
+        <div className="min-h-screen pt-24 pb-20 px-4 bg-black flex flex-col items-center">
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-3xl w-full text-center">
+                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full mb-6 text-xs font-black uppercase tracking-widest bg-amber-500/10 border border-amber-500/20 text-amber-500">
+                    <Flag className="w-3.5 h-3.5" /> Interactive Tactical Simulator
+                </div>
+                <h1 className="text-5xl md:text-7xl font-black text-white mb-6" style={{ fontFamily: 'Cinzel, serif' }}>
+                    COMMAND <span className="text-amber-500">TASK</span>
+                </h1>
+                <p className="text-lg text-gray-400 mb-12 max-w-2xl mx-auto leading-relaxed">
+                    Step into the shoes of the Commander. Navigate complex obstacle courses using limited helping materials. Drag, drop, rotate, and build bridges to safely reach the finish line without touching the restricted Red Zone.
+                </p>
+                <div className="grid sm:grid-cols-3 gap-6 mb-12 text-left">
+                    <div className="p-6 rounded-2xl bg-[#0d0d0d] border border-white/5">
+                        <Target className="w-8 h-8 text-amber-500 mb-4" />
+                        <h3 className="text-white font-bold mb-2">Immersive Obstacles</h3>
+                        <p className="text-sm text-gray-500">Interact with pillars, red zones, and gaps just like the real GTO ground.</p>
+                    </div>
+                    <div className="p-6 rounded-2xl bg-[#0d0d0d] border border-white/5">
+                        <Box className="w-8 h-8 text-amber-500 mb-4" />
+                        <h3 className="text-white font-bold mb-2">Tactical Materials</h3>
+                        <p className="text-sm text-gray-500">Utilize wooden planks, ballis, and ropes to engineer safe passages.</p>
+                    </div>
+                    <div className="p-6 rounded-2xl bg-[#0d0d0d] border border-white/5">
+                        <Shield className="w-8 h-8 text-amber-500 mb-4" />
+                        <h3 className="text-white font-bold mb-2">Strict SSB Rules</h3>
+                        <p className="text-sm text-gray-500">Every move is evaluated. Touching restricted areas yields penalties.</p>
+                    </div>
+                </div>
+                <button 
+                    onClick={() => setPhase('level')}
+                    className="px-12 py-5 rounded-2xl bg-amber-500 text-black font-black text-lg hover:scale-105 active:scale-95 transition-all shadow-[0_0_40px_rgba(245,166,35,0.3)]"
+                    style={{ fontFamily: 'Cinzel, serif' }}
+                >
+                    SELECT DIFFICULTY →
+                </button>
+            </motion.div>
+        </div>
+    );
+
+    if (phase === 'level') return (
+        <div className="min-h-screen pt-24 pb-20 px-4 bg-black flex flex-col items-center">
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-4xl w-full">
+                <button onClick={() => setPhase('intro')} className="flex items-center gap-2 text-gray-500 hover:text-white transition-colors mb-8 text-sm font-bold">
+                    <ChevronLeft className="w-4 h-4" /> Back
+                </button>
+                <h2 className="text-3xl font-black text-white mb-8" style={{ fontFamily: 'Cinzel, serif' }}>Select Difficulty</h2>
+                <div className="grid md:grid-cols-2 gap-6">
+                    {Object.entries(LEVELS).map(([lvl, data], i) => (
+                        <motion.button
+                            key={lvl}
+                            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }}
+                            onClick={() => startSimulation(lvl)}
+                            className="text-left p-8 rounded-3xl bg-[#0d0d0d] border border-white/10 hover:border-amber-500/50 hover:bg-white/[0.02] transition-all group"
+                        >
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-2xl font-black text-white group-hover:text-amber-500 transition-colors" style={{ fontFamily: 'Cinzel, serif' }}>{lvl}</h3>
+                                <ArrowRightCircle className="w-6 h-6 text-gray-600 group-hover:text-amber-500 transition-colors" />
+                            </div>
+                            <p className="text-gray-400 text-sm mb-6">{data.desc}</p>
+                            <div className="flex items-center gap-4">
+                                {data.inventory.plank > 0 && <span className="text-xs font-bold text-amber-500 bg-amber-500/10 px-3 py-1 rounded-full">{data.inventory.plank} Plank</span>}
+                                {data.inventory.balli > 0 && <span className="text-xs font-bold text-orange-500 bg-orange-500/10 px-3 py-1 rounded-full">{data.inventory.balli} Balli</span>}
+                                {data.inventory.rope > 0 && <span className="text-xs font-bold text-gray-300 bg-gray-500/20 px-3 py-1 rounded-full">{data.inventory.rope} Rope</span>}
+                            </div>
+                        </motion.button>
+                    ))}
+                </div>
+            </motion.div>
+        </div>
+    );
+
+    if (phase === 'result') return (
+        <div className="min-h-screen pt-24 pb-20 px-4 bg-black flex flex-col items-center justify-center">
+            <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="max-w-2xl w-full text-center p-10 rounded-3xl bg-[#0d0d0d] border border-amber-500/30 shadow-[0_0_80px_rgba(245,166,35,0.1)]">
+                <Award className="w-20 h-20 text-amber-500 mx-auto mb-6" />
+                <h2 className="text-4xl font-black text-white mb-2" style={{ fontFamily: 'Cinzel, serif' }}>TASK ACCOMPLISHED</h2>
+                <p className="text-gray-400 mb-10">You have successfully navigated the obstacle course.</p>
+                
+                <div className="grid grid-cols-3 gap-6 mb-10">
+                    <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
+                        <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mb-1">Final Score</p>
+                        <p className="text-3xl font-black text-amber-500">{score}/100</p>
+                    </div>
+                    <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
+                        <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mb-1">Time</p>
+                        <p className="text-3xl font-black text-white">{Math.floor(time / 60)}:{(time % 60).toString().padStart(2, '0')}</p>
+                    </div>
+                    <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
+                        <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mb-1">Violations</p>
+                        <p className="text-3xl font-black text-red-400">{violations}</p>
+                    </div>
+                </div>
+
+                <div className="flex gap-4">
+                    <button onClick={() => setPhase('level')} className="flex-1 py-4 rounded-xl font-black text-white bg-white/5 border border-white/10 hover:bg-white/10 transition-colors">
+                        Try Another Level
+                    </button>
+                    <Link to="/dashboard" className="flex-1 py-4 rounded-xl font-black text-black bg-amber-500 hover:bg-amber-400 transition-colors" style={{ fontFamily: 'Cinzel, serif' }}>
+                        Return to Dashboard
                     </Link>
+                </div>
+            </motion.div>
+        </div>
+    );
 
-                    <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full mb-6 text-xs font-black uppercase tracking-widest"
-                        style={{ background: 'rgba(245,166,35,0.08)', border: '1px solid rgba(245,166,35,0.2)', color: '#f5a623' }}>
-                        <Flag className="w-3.5 h-3.5" /> Command Task Simulator
-                    </div>
+    // ─── SIMULATION PHASE ───────────────────────────────────────────────────
+    return (
+        <div className="min-h-screen pt-24 pb-8 px-4 bg-black flex flex-col items-center select-none overflow-hidden">
+            <div className="max-w-[1200px] w-full flex flex-col">
+                <HUD score={score} violations={violations} time={time} level={level} setPhase={setPhase} />
+                
+                <div className="flex gap-6 items-start">
+                    {/* Left: Board */}
+                    <div className="relative flex-1 rounded-2xl overflow-hidden border-2 border-[#333] shadow-[0_0_60px_rgba(0,0,0,0.8)] bg-[#141414]" style={{ height: 500 }}>
+                        <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:20px_20px] pointer-events-none" />
+                        
+                        {/* Interactive Board Ref */}
+                        <div ref={boardRef} className="absolute inset-0">
+                            {/* Start Zone */}
+                            <div className="absolute left-0 top-0 w-[150px] h-full bg-blue-500/10 border-r-2 border-blue-500/50 flex items-center justify-center pointer-events-none">
+                                <span className="text-blue-500/30 font-black tracking-widest text-4xl -rotate-90">START</span>
+                            </div>
+                            
+                            {/* Red Zone Warning */}
+                            <div className="absolute left-[150px] right-[150px] top-0 h-full bg-red-900/10 flex items-end justify-center pb-6 pointer-events-none">
+                                <span className="text-red-500/20 font-black tracking-widest text-2xl uppercase">Restricted Red Zone</span>
+                            </div>
+                            
+                            {/* Finish Zone */}
+                            <div className="absolute right-0 top-0 w-[150px] h-full bg-green-500/10 border-l-2 border-green-500/50 flex items-center justify-center pointer-events-none">
+                                <span className="text-green-500/30 font-black tracking-widest text-4xl rotate-90">FINISH</span>
+                            </div>
 
-                    <h1 className="text-4xl md:text-6xl font-black text-white mb-4" style={{ fontFamily: 'Cinzel, serif' }}>
-                        COMMAND<br /><span className="gold-gradient-text">TASK</span>
-                    </h1>
-
-                    <p className="text-base leading-relaxed mb-10" style={{ color: '#6b6b6b', maxWidth: 520 }}>
-                        You are the Commander. Select helpers from your group, plan your crossing strategy, execute under GTO observation, and handle real complications mid-task. Every decision is scored.
-                    </p>
-
-                    {/* OLQs assessed */}
-                    <div className="p-5 rounded-2xl mb-10" style={{ background: 'rgba(245,166,35,0.04)', border: '1px solid rgba(245,166,35,0.1)' }}>
-                        <p className="text-xs font-black uppercase tracking-widest mb-4" style={{ color: '#f5a623' }}>OLQs Being Assessed</p>
-                        <div className="flex flex-wrap">
-                            {['Effective Intelligence', 'Sense of Responsibility', 'Initiative', 'Decisiveness', 'Ability to Influence', 'Cooperation', 'Stamina', 'Communication Courage'].map(olq => (
-                                <OLQBadge key={olq} label={olq} />
+                            {/* Pillars */}
+                            {LEVELS[level].pillars.map((p, i) => (
+                                <div key={i} className="absolute rounded-full bg-gray-200 border-4 border-gray-400 shadow-xl pointer-events-none" 
+                                    style={{ width: p.r*2, height: p.r*2, left: p.x - p.r, top: p.y - p.r }} />
                             ))}
-                        </div>
-                    </div>
 
-                    {/* How it works */}
-                    <div className="grid sm:grid-cols-4 gap-3 mb-12">
-                        {[
-                            { icon: Target, step: '01', label: 'Study Obstacle', desc: 'Examine the scenario and rules' },
-                            { icon: Users, step: '02', label: 'Pick Helpers', desc: 'Choose 1–2 candidates wisely' },
-                            { icon: Lightbulb, step: '03', label: 'Plan', desc: 'Decide your strategy' },
-                            { icon: Zap, step: '04', label: 'Execute', desc: 'Handle real complications' },
-                        ].map(s => (
-                            <div key={s.step} className="p-4 rounded-xl text-center" style={{ background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.05)' }}>
-                                <div className="w-10 h-10 rounded-xl flex items-center justify-center mx-auto mb-3" style={{ background: 'rgba(245,166,35,0.1)' }}>
-                                    <s.icon className="w-5 h-5" style={{ color: '#f5a623' }} />
-                                </div>
-                                <p className="text-xs font-black text-white mb-1">{s.label}</p>
-                                <p className="text-xs" style={{ color: '#4a4a4a' }}>{s.desc}</p>
-                            </div>
-                        ))}
-                    </div>
-
-                    <motion.button
-                        whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
-                        onClick={() => { scrollTop(); setPhase(PHASE.SELECT_OBSTACLE); }}
-                        className="w-full py-5 rounded-2xl font-black text-black text-base btn-gold"
-                        style={{ fontFamily: 'Cinzel, serif', letterSpacing: '0.05em' }}
-                    >
-                        BEGIN COMMAND TASK →
-                    </motion.button>
-                </motion.div>
-            </div>
-        </div>
-    );
-
-    // ── SELECT OBSTACLE ────────────────────────────────────────────────────────
-    if (phase === PHASE.SELECT_OBSTACLE) return (
-        <div ref={topRef} className="min-h-screen pt-24 pb-20 px-4" style={{ background: '#000' }}>
-            <div className="max-w-3xl mx-auto">
-                <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
-                    <div className="flex items-center gap-3 mb-8">
-                        <button onClick={() => setPhase(PHASE.INTRO)} className="p-2 rounded-xl" style={{ background: '#111', color: '#5a5a5a' }}><ChevronLeft className="w-5 h-5" /></button>
-                        <div>
-                            <p className="text-xs font-black uppercase tracking-widest" style={{ color: '#f5a623' }}>Phase 1 of 4</p>
-                            <h2 className="text-2xl font-black text-white" style={{ fontFamily: 'Cinzel, serif' }}>Select Your Obstacle</h2>
-                        </div>
-                    </div>
-
-                    <div className="grid gap-4">
-                        {OBSTACLES.map((obs, i) => (
-                            <motion.button
-                                key={obs.id}
-                                initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.08 }}
-                                whileHover={{ y: -2 }}
-                                onClick={() => { setObstacle(obs); setPhase(PHASE.SELECT_HELPERS); scrollTop(); }}
-                                className="w-full text-left rounded-2xl overflow-hidden"
-                                style={{ border: '1px solid rgba(255,255,255,0.07)', background: '#0d0d0d' }}
-                                onMouseEnter={e => e.currentTarget.style.borderColor = obs.diffColor + '55'}
-                                onMouseLeave={e => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)'}
-                            >
-                                {/* For 3D obstacles, use the interactive preview component */}
-                                {obs.is3D ? (
-                                    <div onClick={e => e.stopPropagation()}>
-                                        <ObstaclePreview obs={obs} />
-                                    </div>
-                                ) : (
-                                    <ObstacleSVG type={obs.svg} />
-                                )}
-                                <div className="p-5">
-                                    <div className="flex items-start justify-between mb-2">
-                                        <h3 className="text-lg font-black text-white" style={{ fontFamily: 'Cinzel, serif' }}>{obs.name}</h3>
-                                        <div className="flex gap-2 flex-shrink-0">
-                                            {obs.is3D && (
-                                                <span className="text-xs font-black px-2.5 py-1 rounded-full" style={{ background: 'rgba(139,92,246,0.15)', color: '#8b5cf6', border: '1px solid rgba(139,92,246,0.3)' }}>3D Model</span>
-                                            )}
-                                            <span className="text-xs font-black px-3 py-1 rounded-full" style={{ background: `${obs.diffColor}18`, color: obs.diffColor }}>
-                                                {obs.difficulty}
-                                            </span>
-                                        </div>
-                                    </div>
-                                    <p className="text-sm leading-relaxed mb-3" style={{ color: '#6b6b6b' }}>{obs.description}</p>
-                                    <div className="flex flex-wrap gap-1.5">
-                                        {obs.resources.map(r => (
-                                            <span key={r} className="text-xs px-2.5 py-1 rounded-full" style={{ background: 'rgba(245,166,35,0.08)', color: '#f5a623', border: '1px solid rgba(245,166,35,0.15)' }}>{r}</span>
-                                        ))}
-                                    </div>
-                                    {obs.is3D && (
-                                        <p className="mt-3 text-xs" style={{ color: '#5a5a5a' }}>
-                                            ✦ Click the 3D preview above to explore the obstacle interactively, then tap this card to select it.
-                                        </p>
-                                    )}
-                                </div>
-                            </motion.button>
-                        ))}
-                    </div>
-                </motion.div>
-            </div>
-        </div>
-    );
-
-    // ── SELECT HELPERS ─────────────────────────────────────────────────────────
-    if (phase === PHASE.SELECT_HELPERS) return (
-        <div ref={topRef} className="min-h-screen pt-24 pb-20 px-4" style={{ background: '#000' }}>
-            <div className="max-w-3xl mx-auto">
-                <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
-                    <div className="flex items-center gap-3 mb-6">
-                        <button onClick={() => setPhase(PHASE.SELECT_OBSTACLE)} className="p-2 rounded-xl" style={{ background: '#111', color: '#5a5a5a' }}><ChevronLeft className="w-5 h-5" /></button>
-                        <div>
-                            <p className="text-xs font-black uppercase tracking-widest" style={{ color: '#f5a623' }}>Phase 2 of 4</p>
-                            <h2 className="text-2xl font-black text-white" style={{ fontFamily: 'Cinzel, serif' }}>Choose Your Helpers</h2>
-                        </div>
-                    </div>
-
-                    {/* Obstacle reminder */}
-                    <div className="p-4 rounded-2xl mb-7" style={{ background: 'rgba(245,166,35,0.04)', border: '1px solid rgba(245,166,35,0.12)' }}>
-                        <p className="text-xs font-black uppercase tracking-widest mb-2" style={{ color: '#f5a623' }}>Your Obstacle: {obstacle?.name}</p>
-                        <div className="grid sm:grid-cols-2 gap-1.5">
-                            {obstacle?.rules.map((r, i) => (
-                                <p key={i} className="text-xs flex items-start gap-1.5" style={{ color: '#6b6b6b' }}>
-                                    <AlertTriangle className="w-3 h-3 mt-0.5 flex-shrink-0" style={{ color: '#f5a623' }} /> {r}
-                                </p>
-                            ))}
-                        </div>
-                    </div>
-
-                    <p className="text-sm mb-6" style={{ color: '#5a5a5a' }}>Select <strong style={{ color: '#fff' }}>1 or 2 helpers</strong>. Pay attention to their traits — your choice affects execution.</p>
-
-                    {helperError && (
-                        <div className="flex items-center gap-2 p-3 rounded-xl mb-5" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#ef4444' }}>
-                            <AlertTriangle className="w-4 h-4 flex-shrink-0" /> <span className="text-sm">{helperError}</span>
-                        </div>
-                    )}
-
-                    <div className="grid sm:grid-cols-2 gap-3 mb-8">
-                        {CANDIDATES.map(c => (
-                            <CandidateCard
-                                key={c.id} c={c}
-                                selected={helpers.includes(c.id)}
-                                onToggle={toggleHelper}
-                                disabled={helpers.length >= 2 && !helpers.includes(c.id)}
-                            />
-                        ))}
-                    </div>
-
-                    <div className="flex items-center justify-between mb-4">
-                        <p className="text-sm" style={{ color: '#5a5a5a' }}>Selected: <strong style={{ color: '#fff' }}>{helpers.length}/2 helpers</strong></p>
-                    </div>
-                    <button onClick={confirmHelpers} className="w-full py-4 rounded-2xl font-black text-black btn-gold" style={{ fontFamily: 'Cinzel, serif' }}>
-                        Confirm Helpers & Plan →
-                    </button>
-                </motion.div>
-            </div>
-        </div>
-    );
-
-    // ── PLANNING ───────────────────────────────────────────────────────────────
-    if (phase === PHASE.PLANNING) return (
-        <div ref={topRef} className="min-h-screen pt-24 pb-20 px-4" style={{ background: '#000' }}>
-            <div className="max-w-3xl mx-auto">
-                <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
-                    <div className="flex items-center gap-3 mb-6">
-                        <button onClick={() => setPhase(PHASE.SELECT_HELPERS)} className="p-2 rounded-xl" style={{ background: '#111', color: '#5a5a5a' }}><ChevronLeft className="w-5 h-5" /></button>
-                        <div>
-                            <p className="text-xs font-black uppercase tracking-widest" style={{ color: '#f5a623' }}>Phase 3 of 4</p>
-                            <h2 className="text-2xl font-black text-white" style={{ fontFamily: 'Cinzel, serif' }}>Plan Your Approach</h2>
-                        </div>
-                    </div>
-
-                    {/* Obstacle + helpers summary */}
-                    <div className="rounded-2xl overflow-hidden mb-6" style={{ border: '1px solid rgba(255,255,255,0.07)' }}>
-                        {obstacle?.is3D ? (
-                            <ObstaclePreview obs={obstacle} expanded />
-                        ) : (
-                            <ObstacleSVG type={obstacle?.svg} />
-                        )}
-                        <div className="p-5 grid sm:grid-cols-2 gap-4" style={{ background: '#0d0d0d' }}>
-                            <div>
-                                <p className="text-xs font-black uppercase tracking-widest mb-3" style={{ color: '#f5a623' }}>Resources</p>
-                                {obstacle?.resources.map(r => <p key={r} className="text-sm text-white mb-1">• {r}</p>)}
-                            </div>
-                            <div>
-                                <p className="text-xs font-black uppercase tracking-widest mb-3" style={{ color: '#f5a623' }}>Your Helpers</p>
-                                {CANDIDATES.filter(c => helpers.includes(c.id)).map(c => (
-                                    <div key={c.id} className="mb-2">
-                                        <p className="text-sm font-bold text-white">{c.name}</p>
-                                        <p className="text-xs" style={{ color: '#5a5a5a' }}>Strength: {c.strength}</p>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Reveal optimal plan toggle */}
-                    <button
-                        onClick={() => setRevealed(r => ({ ...r, plan: !r.plan }))}
-                        className="flex items-center gap-2 text-xs font-bold mb-6 px-4 py-2.5 rounded-xl transition-all"
-                        style={{ background: revealed.plan ? 'rgba(245,166,35,0.12)' : '#111', border: '1px solid rgba(245,166,35,0.15)', color: '#f5a623' }}
-                    >
-                        <Eye className="w-4 h-4" /> {revealed.plan ? 'Hide' : 'Reveal'} Optimal Plan (for study)
-                    </button>
-                    <AnimatePresence>
-                        {revealed.plan && (
-                            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
-                                className="mb-6 p-4 rounded-2xl text-sm leading-relaxed" style={{ background: 'rgba(245,166,35,0.06)', border: '1px solid rgba(245,166,35,0.2)', color: '#c8841a' }}>
-                                <strong className="text-white">Optimal Plan: </strong>{obstacle?.optimalPlan}
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
-
-                    <p className="text-sm font-bold mb-4 text-white">You approach the obstacle with your helpers. The GTO is watching. How do you proceed?</p>
-
-                    <div className="grid gap-3 mb-8">
-                        {PLAN_CHOICES.map(choice => (
-                            <button key={choice.id}
-                                onClick={() => setPlanChoice(choice.id)}
-                                className="w-full text-left p-4 rounded-2xl text-sm transition-all"
-                                style={{
-                                    background: planChoice === choice.id ? 'rgba(245,166,35,0.1)' : '#0d0d0d',
-                                    border: planChoice === choice.id ? '1.5px solid #f5a623' : '1px solid rgba(255,255,255,0.07)',
-                                    color: '#e5e5e5'
-                                }}
-                            >
-                                <span className="font-black mr-2" style={{ color: '#f5a623' }}>{choice.id}.</span> {choice.text}
-                            </button>
-                        ))}
-                    </div>
-
-                    <button onClick={confirmPlan} disabled={!planChoice}
-                        className="w-full py-4 rounded-2xl font-black text-black btn-gold disabled:opacity-40"
-                        style={{ fontFamily: 'Cinzel, serif' }}>
-                        Begin Execution →
-                    </button>
-                </motion.div>
-            </div>
-        </div>
-    );
-
-    // ── EXECUTION ──────────────────────────────────────────────────────────────
-    if (phase === PHASE.EXECUTION) {
-        const step = EXECUTION_STEPS[execStep];
-        const answered = execAnswers[step.id];
-
-        return (
-            <div ref={topRef} className="min-h-screen pt-24 pb-20 px-4" style={{ background: '#000' }}>
-                <div className="max-w-3xl mx-auto">
-                    <motion.div key={execStep} initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }}>
-                        {/* Progress */}
-                        <div className="flex items-center gap-3 mb-8">
-                            <div>
-                                <p className="text-xs font-black uppercase tracking-widest" style={{ color: '#f5a623' }}>Phase 4 of 4 — Execution</p>
-                                <h2 className="text-xl font-black text-white" style={{ fontFamily: 'Cinzel, serif' }}>{step.title}</h2>
-                            </div>
-                        </div>
-
-                        {/* Progress dots */}
-                        <div className="flex items-center gap-2 mb-8">
-                            {EXECUTION_STEPS.map((s, i) => (
-                                <div key={i} className="flex-1 h-1.5 rounded-full transition-all" style={{ background: i <= execStep ? '#f5a623' : '#1a1a1a' }} />
-                            ))}
-                        </div>
-
-                        {/* GTO observation banner */}
-                        <div className="flex items-center gap-3 p-4 rounded-2xl mb-6" style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.15)' }}>
-                            <Eye className="w-5 h-5 flex-shrink-0" style={{ color: '#ef4444' }} />
-                            <p className="text-sm font-bold" style={{ color: '#ef4444' }}>GTO is observing. Every decision matters.</p>
-                        </div>
-
-                        {/* Scenario */}
-                        <div className="p-6 rounded-2xl mb-8" style={{ background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.07)' }}>
-                            <div className="flex items-center gap-2 mb-3">
-                                <AlertTriangle className="w-5 h-5" style={{ color: '#f5a623' }} />
-                                <p className="text-xs font-black uppercase tracking-widest" style={{ color: '#f5a623' }}>Situation</p>
-                            </div>
-                            <p className="text-base text-white leading-relaxed">{step.prompt}</p>
-                        </div>
-
-                        {/* Choices */}
-                        <div className="grid gap-3 mb-6">
-                            {step.choices.map((choice, i) => {
-                                const isSelected = answered === i;
+                            {/* Materials */}
+                            {materials.map(m => {
+                                const conf = ITEM_CONFIG[m.type];
                                 return (
-                                    <button key={i} onClick={() => answerExecStep(i)}
-                                        className="w-full text-left p-4 rounded-2xl text-sm transition-all"
+                                    <motion.div
+                                        key={m.id}
+                                        drag
+                                        dragMomentum={false}
+                                        onDragStart={() => setSelectedMatId(m.id)}
+                                        onDragEnd={(e, info) => handleMatDragEnd(e, info, m)}
+                                        className={`absolute rounded-sm cursor-grab active:cursor-grabbing ${selectedMatId === m.id ? 'ring-2 ring-white ring-offset-2 ring-offset-black z-20' : 'z-10'}`}
                                         style={{
-                                            background: isSelected ? 'rgba(245,166,35,0.08)' : '#0d0d0d',
-                                            border: isSelected ? '1.5px solid #f5a623' : '1px solid rgba(255,255,255,0.06)',
-                                            color: '#e5e5e5'
+                                            width: conf.length,
+                                            height: conf.width,
+                                            backgroundColor: conf.color,
+                                            left: m.x, top: m.y, x: '-50%', y: '-50%',
+                                            rotate: m.rot,
+                                            boxShadow: '0 10px 20px rgba(0,0,0,0.5), inset 0 2px 4px rgba(255,255,255,0.2)'
                                         }}
-                                    >
-                                        <span className="font-black mr-2" style={{ color: '#f5a623' }}>{String.fromCharCode(65 + i)}.</span>{choice.text}
-                                    </button>
+                                        whileHover={{ scale: 1.02 }}
+                                        whileDrag={{ scale: 1.05, boxShadow: '0 20px 40px rgba(0,0,0,0.6)' }}
+                                    />
                                 );
                             })}
+
+                            {/* Player Token */}
+                            <motion.div
+                                drag
+                                dragMomentum={false}
+                                onDragEnd={handlePlayerDragEnd}
+                                className="absolute w-10 h-10 rounded-full bg-white border-4 border-amber-500 shadow-[0_0_20px_rgba(245,166,35,0.6)] cursor-grab active:cursor-grabbing z-30 flex items-center justify-center"
+                                style={{ left: playerPos.x, top: playerPos.y, x: '-50%', y: '-50%' }}
+                                whileHover={{ scale: 1.1 }}
+                                whileDrag={{ scale: 1.2 }}
+                            >
+                                <span className="text-amber-500 font-black text-xs">YOU</span>
+                            </motion.div>
                         </div>
 
-                        {/* Feedback on answered */}
+                        {/* Rules Alert Overlay */}
                         <AnimatePresence>
-                            {answered !== undefined && (
-                                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-                                    className="p-4 rounded-2xl mb-6 text-sm" style={{ background: 'rgba(245,166,35,0.06)', border: '1px solid rgba(245,166,35,0.15)', color: '#c8841a' }}>
-                                    <strong className="text-white">GTO Notes: </strong>{step.choices[answered]?.feedback}
+                            {alertMsg && (
+                                <motion.div 
+                                    initial={{ opacity: 0, y: -50, scale: 0.9 }}
+                                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                                    exit={{ opacity: 0, scale: 0.9 }}
+                                    className="absolute top-10 left-1/2 -translate-x-1/2 z-50 bg-red-600 text-white px-8 py-4 rounded-2xl font-black text-lg shadow-2xl border-2 border-red-400 flex items-center gap-3 whitespace-nowrap"
+                                >
+                                    <AlertTriangle className="w-6 h-6 text-white" /> {alertMsg}
                                 </motion.div>
                             )}
                         </AnimatePresence>
+                    </div>
 
-                        <button onClick={nextExecStep} disabled={answered === undefined}
-                            className="w-full py-4 rounded-2xl font-black text-black btn-gold disabled:opacity-40"
-                            style={{ fontFamily: 'Cinzel, serif' }}>
-                            {execStep < EXECUTION_STEPS.length - 1 ? 'Next Situation →' : 'Complete Task & See Report →'}
-                        </button>
-                    </motion.div>
+                    {/* Right: Controls & Inventory */}
+                    <div className="w-80 flex flex-col gap-6">
+                        {/* Hint System */}
+                        <div className="p-5 rounded-2xl bg-[#0d0d0d] border border-amber-500/20 shadow-[0_0_30px_rgba(245,166,35,0.05)]">
+                            <div className="flex items-center gap-2 mb-3">
+                                <Lightbulb className="w-5 h-5 text-amber-500" />
+                                <h3 className="text-white font-black" style={{ fontFamily: 'Cinzel, serif' }}>Tactical Intel</h3>
+                            </div>
+                            <p className="text-sm text-gray-400 leading-relaxed italic">{hint}</p>
+                        </div>
+
+                        {/* Selected Item Controls */}
+                        <div className="p-5 rounded-2xl bg-[#0d0d0d] border border-white/10 transition-all" style={{ opacity: selectedMatId ? 1 : 0.5 }}>
+                            <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mb-4">Object Controls</p>
+                            <div className="flex gap-3">
+                                <button onClick={() => rotateSelected(-15)} disabled={!selectedMatId} className="flex-1 py-3 bg-white/5 hover:bg-white/10 rounded-xl flex items-center justify-center gap-2 text-white font-bold text-sm transition-colors disabled:opacity-50">
+                                    <RotateCcw className="w-4 h-4" /> -15°
+                                </button>
+                                <button onClick={() => rotateSelected(15)} disabled={!selectedMatId} className="flex-1 py-3 bg-white/5 hover:bg-white/10 rounded-xl flex items-center justify-center gap-2 text-white font-bold text-sm transition-colors disabled:opacity-50">
+                                    <RotateCw className="w-4 h-4" /> +15°
+                                </button>
+                            </div>
+                            <p className="text-[10px] text-gray-500 text-center mt-3">Select a material to rotate</p>
+                        </div>
+
+                        {/* Inventory */}
+                        <div className="p-5 rounded-2xl bg-[#0d0d0d] border border-white/10 flex-1">
+                            <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mb-4">Helping Materials</p>
+                            <div className="flex flex-col gap-3">
+                                {Object.entries(inventory).map(([type, count]) => {
+                                    const conf = ITEM_CONFIG[type];
+                                    return (
+                                        <button 
+                                            key={type}
+                                            onClick={() => spawnMaterial(type)}
+                                            disabled={count <= 0}
+                                            className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/10 hover:border-amber-500/50 hover:bg-white/10 transition-all disabled:opacity-30 disabled:hover:border-white/10 disabled:cursor-not-allowed group"
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: conf.color }}>
+                                                    <Box className="w-4 h-4 text-white/50" />
+                                                </div>
+                                                <span className="font-bold text-white group-hover:text-amber-500 transition-colors">{conf.label}</span>
+                                            </div>
+                                            <span className="flex items-center justify-center w-8 h-8 rounded-full bg-black text-amber-500 font-black text-sm">{count}</span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
-        );
-    }
-
-    // ── RESULT ─────────────────────────────────────────────────────────────────
-    if (phase === PHASE.RESULT) {
-        const grade = getGrade(totalScore);
-        const GradeIcon = grade.icon;
-        const selectedCandidates = CANDIDATES.filter(c => helpers.includes(c.id));
-        const hadRiskyHelper = selectedCandidates.some(c => !c.completes);
-
-        return (
-            <div ref={topRef} className="min-h-screen pt-24 pb-20 px-4" style={{ background: '#000' }}>
-                <div className="max-w-3xl mx-auto">
-                    <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }}>
-                        {/* Grade banner */}
-                        <div className="rounded-3xl p-8 mb-8 text-center relative overflow-hidden"
-                            style={{ background: `linear-gradient(135deg, #0d0d0d, rgba(245,166,35,0.04))`, border: `1px solid ${grade.color}35` }}>
-                            <div className="absolute top-0 left-0 right-0 h-1" style={{ background: `linear-gradient(90deg, transparent, ${grade.color}, transparent)` }} />
-                            <div className="w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-5"
-                                style={{ background: `${grade.color}18`, border: `1px solid ${grade.color}35` }}>
-                                <GradeIcon className="w-10 h-10" style={{ color: grade.color }} />
-                            </div>
-                            <p className="text-xs font-black uppercase tracking-widest mb-2" style={{ color: grade.color }}>GTO Assessment</p>
-                            <h2 className="text-5xl font-black text-white mb-1" style={{ fontFamily: 'Cinzel, serif' }}>{totalScore}<span className="text-2xl" style={{ color: '#4a4a4a' }}>/50</span></h2>
-                            <p className="text-2xl font-black mt-2" style={{ color: grade.color }}>{grade.label}</p>
-                        </div>
-
-                        {/* Breakdown */}
-                        <div className="rounded-2xl overflow-hidden mb-6" style={{ border: '1px solid rgba(255,255,255,0.07)', background: '#0d0d0d' }}>
-                            <div className="px-6 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                                <p className="text-xs font-black uppercase tracking-widest" style={{ color: '#f5a623' }}>Score Breakdown</p>
-                            </div>
-                            {scoreBreakdown.map((item, i) => (
-                                <div key={i} className="px-6 py-4" style={{ borderBottom: i < scoreBreakdown.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
-                                    <div className="flex items-center justify-between mb-1.5">
-                                        <p className="text-sm font-bold text-white">{item.label}</p>
-                                        <span className="text-sm font-black" style={{ color: item.score >= 8 ? '#22c55e' : item.score >= 5 ? '#f5a623' : '#ef4444' }}>
-                                            {item.score}/{item.max}
-                                        </span>
-                                    </div>
-                                    <div className="h-1.5 rounded-full mb-2" style={{ background: '#1a1a1a' }}>
-                                        <div className="h-1.5 rounded-full transition-all" style={{ width: `${(item.score / item.max) * 100}%`, background: item.score >= 8 ? '#22c55e' : item.score >= 5 ? '#f5a623' : '#ef4444' }} />
-                                    </div>
-                                    {item.penalty && <p className="text-xs" style={{ color: '#ef4444' }}>⚠ {item.penalty}</p>}
-                                    {item.feedback && <p className="text-xs" style={{ color: '#6b6b6b' }}>{item.feedback}</p>}
-                                    {item.olqs && item.olqs.length > 0 && (
-                                        <div className="mt-2 flex flex-wrap">{item.olqs.map(o => <OLQBadge key={o} label={o} />)}</div>
-                                    )}
-                                </div>
-                            ))}
-                        </div>
-
-                        {/* Helper assessment */}
-                        {hadRiskyHelper && (
-                            <div className="p-5 rounded-2xl mb-6" style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.18)' }}>
-                                <div className="flex items-center gap-2 mb-2">
-                                    <XCircle className="w-5 h-5" style={{ color: '#ef4444' }} />
-                                    <p className="text-sm font-black text-white">Helper Selection Warning</p>
-                                </div>
-                                <p className="text-sm" style={{ color: '#ef4444' }}>
-                                    You selected Cadet Dev who tends to override your commands. During execution, he suggested a different approach in front of the GTO, undermining your authority. In real SSBs, avoid selecting helpers who challenge your command.
-                                </p>
-                            </div>
-                        )}
-
-                        {/* General feedback */}
-                        <div className="p-6 rounded-2xl mb-8" style={{ background: 'rgba(245,166,35,0.04)', border: '1px solid rgba(245,166,35,0.12)' }}>
-                            <p className="text-xs font-black uppercase tracking-widest mb-4" style={{ color: '#f5a623' }}>GTO's Overall Remarks</p>
-                            {totalScore >= 45 && <p className="text-sm leading-relaxed" style={{ color: '#9ca3af' }}>Exceptional command. You demonstrated decisive planning, clear communication, integrity, and composure. The GTO was clearly impressed. This is the standard of a future officer.</p>}
-                            {totalScore >= 38 && totalScore < 45 && <p className="text-sm leading-relaxed" style={{ color: '#9ca3af' }}>Solid performance. Your planning was logical and your composure adequate. Minor lapses in clarity of instruction or adaptation. Keep refining your briefing technique and the ability to handle complications without visible stress.</p>}
-                            {totalScore >= 28 && totalScore < 38 && <p className="text-sm leading-relaxed" style={{ color: '#9ca3af' }}>Average performance. You showed some leadership qualities but struggled with composure or helper management at key moments. Focus on planning more thoroughly before execution and handling rule violations with integrity.</p>}
-                            {totalScore < 28 && <p className="text-sm leading-relaxed" style={{ color: '#9ca3af' }}>Significant areas for improvement. The command task requires strong planning, clear delegation, and composure under pressure. Practice giving structured orders and reviewing the rules of GTO obstacles before attempting again.</p>}
-                        </div>
-
-                        {/* Pro tips */}
-                        <div className="p-5 rounded-2xl mb-8" style={{ background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.06)' }}>
-                            <p className="text-xs font-black uppercase tracking-widest mb-3" style={{ color: '#f5a623' }}>Key Takeaways</p>
-                            {[
-                                'Always study the obstacle for 30 seconds before speaking — planning first is a sign of Effective Intelligence.',
-                                'Helpers are your hands, not your brain — steer them to follow YOUR plan, not suggest their own.',
-                                'Never hide rule violations. Acknowledge and correct immediately — integrity is heavily observed.',
-                                'When GTO raises difficulty, stay composed. Quick adaptation is the hallmark of a good commander.',
-                                'Blaming helpers or yelling is an immediate red flag. Own the team\'s success and failure.',
-                            ].map((tip, i) => (
-                                <p key={i} className="text-xs flex items-start gap-2 mb-2.5" style={{ color: '#6b6b6b' }}>
-                                    <span style={{ color: '#f5a623', flexShrink: 0 }}>✦</span> {tip}
-                                </p>
-                            ))}
-                        </div>
-
-                        {/* Actions */}
-                        <div className="flex gap-3">
-                            <button onClick={restart}
-                                className="flex-1 flex items-center justify-center gap-2 py-4 rounded-2xl font-bold text-sm transition-all"
-                                style={{ background: '#111', border: '1px solid rgba(255,255,255,0.07)', color: '#9ca3af' }}
-                                onMouseEnter={e => e.currentTarget.style.color = '#fff'} onMouseLeave={e => e.currentTarget.style.color = '#9ca3af'}>
-                                <RotateCcw className="w-4 h-4" /> Try Again
-                            </button>
-                            <Link to="/gto-simulator"
-                                className="flex-1 flex items-center justify-center gap-2 py-4 rounded-2xl font-black text-sm btn-gold"
-                                style={{ fontFamily: 'Cinzel, serif' }}>
-                                <Award className="w-4 h-4" /> Back to GTO
-                            </Link>
-                        </div>
-                    </motion.div>
-                </div>
-            </div>
-        );
-    }
-
-    return null;
-};
-
-export default CommandTaskSimulator;
+        </div>
+    );
+}
