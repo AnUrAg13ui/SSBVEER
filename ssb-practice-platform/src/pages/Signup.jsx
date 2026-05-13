@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { GoogleLogin, useGoogleLogin } from '@react-oauth/google';
 
-const InputField = ({ label, icon: Icon, type = 'text', name, value, onChange, placeholder, extra }) => (
+const InputField = ({ label, icon: Icon, type = 'text', name, value, onChange, placeholder, required = true, extra }) => (
     <div>
         <label className="block text-xs font-black tracking-widest uppercase mb-2" style={{ color: '#5a5a5a' }}>{label}</label>
         <div className="relative">
@@ -14,7 +14,7 @@ const InputField = ({ label, icon: Icon, type = 'text', name, value, onChange, p
             <input
                 type={type}
                 name={name}
-                required
+                required={required}
                 className="w-full py-3.5 pl-11 pr-4 rounded-xl text-white placeholder:text-gray-700 text-sm font-medium focus:outline-none transition-all"
                 style={{ background: '#111', border: '1px solid rgba(245,166,35,0.15)', transition: 'border-color 0.2s' }}
                 onFocus={e => e.target.style.borderColor = 'rgba(245,166,35,0.5)'}
@@ -224,7 +224,7 @@ const Signup = () => {
                         </div>
 
                         <InputField label="Confirm Password" icon={Lock} type="password" name="confirm_password" value={formData.confirm_password} onChange={handleChange} placeholder="••••••••" />
-                        <InputField label="Institute Code (Optional)" icon={ShieldCheck} name="institute_code" value={formData.institute_code} onChange={handleChange} placeholder="e.g. DEF123" />
+                        <InputField label="Institute Code (Optional)" icon={ShieldCheck} name="institute_code" value={formData.institute_code} onChange={handleChange} placeholder="e.g. DEF123" required={false} />
 
 
                         <button
